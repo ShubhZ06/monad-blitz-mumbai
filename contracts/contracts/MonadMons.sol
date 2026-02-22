@@ -13,6 +13,7 @@ contract MonadMons is ERC721Enumerable, Ownable {
         uint8 attack;
         uint8 defense;
         uint8 speed;
+        uint8 speciesId;
         Tier tier;
     }
 
@@ -27,7 +28,7 @@ contract MonadMons is ERC721Enumerable, Ownable {
     constructor() ERC721("MonadMons", "MONS") Ownable(msg.sender) {}
 
     // Helper to generate some pseudo-random stats
-    function _generateStats(Tier _tier, uint256 _tokenId) internal view returns (MonStats memory) {
+    function _generateStats(Tier _tier, uint256 _tokenId, uint8 _speciesId) internal view returns (MonStats memory) {
         uint256 randomWord = uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, _tokenId)));
         
         uint8 baseAttack = 10;
@@ -48,14 +49,14 @@ contract MonadMons is ERC721Enumerable, Ownable {
         uint8 defense = baseDefense + uint8((randomWord >> 8) % 20);
         uint8 speed = baseSpeed + uint8((randomWord >> 16) % 20);
 
-        return MonStats(attack, defense, speed, _tier);
+        return MonStats(attack, defense, speed, _speciesId, _tier);
     }
 
-    function _mintCard(address to, Tier _tier) internal returns (uint256) {
+    function _mintCard(address to, Tier _tier, uint8 _speciesId) internal returns (uint256) {
         uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
         
-        MonStats memory stats = _generateStats(_tier, tokenId);
+        MonStats memory stats = _generateStats(_tier, tokenId, _speciesId);
         monStats[tokenId] = stats;
         
         emit MonMinted(to, tokenId, _tier);
@@ -63,22 +64,22 @@ contract MonadMons is ERC721Enumerable, Ownable {
     }
 
     // Task 2.1: mintStarter - Restricted to users with 0 balance
-    function mintStarter() external {
+    function mintStarter(uint8 _speciesId) external {
         require(balanceOf(msg.sender) == 0, "Already own a Mon");
-        _mintCard(msg.sender, Tier.Starter);
+        _mintCard(msg.sender, Tier.Starter, _speciesId);
     }
 
     // Task 2.1: claimDaily - Enforce 24-hour cooldown, standard tier
-    function claimDaily() external {
+    function claimDaily(uint8 _speciesId) external {
         require(block.timestamp >= lastFreeMintTime[msg.sender] + DAILY_COOLDOWN, "Cooldown active");
         lastFreeMintTime[msg.sender] = block.timestamp;
-        _mintCard(msg.sender, Tier.Standard);
+        _mintCard(msg.sender, Tier.Standard, _speciesId);
     }
 
     // Task 2.1: buyCard - Payable function (e.g., 0.1 MON), premium tier
-    function buyCard() external payable {
+    function buyCard(uint8 _speciesId) external payable {
         require(msg.value >= PREMIUM_PRICE, "Insufficient MON sent");
-        _mintCard(msg.sender, Tier.Premium);
+        _mintCard(msg.sender, Tier.Premium, _speciesId);
     }
     
     function withdrawMoney() external onlyOwner {
