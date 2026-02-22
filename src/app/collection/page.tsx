@@ -1,116 +1,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useReadContract, useReadContracts } from 'wagmi';
+import { useAccount } from 'wagmi';
 import Link from 'next/link';
 import Image from 'next/image';
-
-const MonadMonsABI = [
-    { "inputs": [{ "internalType": "address", "name": "owner", "type": "address" }], "name": "balanceOf", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
-    { "inputs": [{ "internalType": "address", "name": "owner", "type": "address" }, { "internalType": "uint256", "name": "index", "type": "uint256" }], "name": "tokenOfOwnerByIndex", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
-    { "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "monStats", "outputs": [{ "internalType": "uint8", "name": "attack", "type": "uint8" }, { "internalType": "uint8", "name": "defense", "type": "uint8" }, { "internalType": "uint8", "name": "speed", "type": "uint8" }, { "internalType": "uint8", "name": "speciesId", "type": "uint8" }, { "internalType": "enum MonadMons.Tier", "name": "tier", "type": "uint8" }], "stateMutability": "view", "type": "function" }
-];
-
-const MONAD_MONS_ADDRESS = '0xdcB7bD581BABF76ea8530E11b00E29988032Bea8';
-
-const POKEMON_PRODUCTS = [
-    { name: 'Charizard', image: '/images/charizaed.png', type: 'Fire / Flying', gradient: 'from-orange-500 to-red-600', textColor: 'text-orange-400', shadow: 'shadow-orange-500/20' },
-    { name: 'Blastoise', image: '/images/blastois.png', type: 'Water', gradient: 'from-blue-500 to-cyan-500', textColor: 'text-blue-400', shadow: 'shadow-blue-500/20' },
-    { name: 'Venusaur', image: '/images/venasaur.png', type: 'Grass / Poison', gradient: 'from-green-500 to-emerald-600', textColor: 'text-green-400', shadow: 'shadow-green-500/20' },
-    { name: 'Pikachu', image: '/images/pikachu.png', type: 'Electric', gradient: 'from-yellow-400 to-amber-500', textColor: 'text-yellow-400', shadow: 'shadow-yellow-500/20' },
-    { name: 'Unknown', image: '/images/pikachu.png', type: 'Normal', gradient: 'from-gray-400 to-gray-500', textColor: 'text-gray-400', shadow: 'shadow-gray-500/20' }
-];
-
-// Sub component to fetch token stats
-function PokemonCard({ index, owner }: { index: number, owner: `0x${string}` }) {
-    const { data: tokenIdData } = useReadContract({
-        abi: MonadMonsABI,
-        address: MONAD_MONS_ADDRESS,
-        functionName: 'tokenOfOwnerByIndex',
-        args: [owner, index]
-    });
-
-    const tokenId = tokenIdData !== undefined ? Number(tokenIdData) : undefined;
-
-    const { data: statsData } = useReadContract({
-        abi: MonadMonsABI,
-        address: MONAD_MONS_ADDRESS,
-        functionName: 'monStats',
-        args: tokenId !== undefined ? [tokenId] : undefined,
-        query: {
-            enabled: tokenId !== undefined
-        }
-    });
-
-    if (!statsData) {
-        return <div className="animate-pulse bg-zinc-900 rounded-2xl h-96 w-full border border-white/5"></div>;
-    }
-
-    const [attack, defense, speed, speciesId, tierVal] = statsData as [number, number, number, number, number];
-
-    // Fallback if species ID is out of bounds
-    const pokemon = POKEMON_PRODUCTS[speciesId] || POKEMON_PRODUCTS[4];
-
-    const tier = tierVal === 2 ? 'Premium' : tierVal === 1 ? 'Standard' : 'Starter';
-    const isPremium = tier === 'Premium';
-
-    return (
-        <div className={`bg-zinc-900 border ${isPremium ? 'border-amber-500/50 shadow-amber-500/20' : 'border-zinc-700'} rounded-2xl overflow-hidden shadow-lg group hover:scale-[1.02] transform transition-all duration-300 relative`}>
-            <div className={`h-48 bg-gradient-to-tr ${pokemon.gradient} opacity-80 flex flex-col items-center justify-center relative`}>
-                <div className="absolute inset-0 bg-black/40"></div>
-
-                <div className={`absolute top-3 right-3 ${isPremium ? 'bg-amber-500/20 text-amber-300' : 'bg-zinc-500/20 text-zinc-300'} text-xs px-2 py-1 rounded font-bold uppercase tracking-widest z-20 backdrop-blur-md`}>
-                    {tier}
-                </div>
-
-                <div className="relative w-32 h-32 z-10 group-hover:scale-110 transition-transform duration-500 drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)]">
-                    <Image src={pokemon.image} alt={pokemon.name} fill className="object-contain" />
-                </div>
-            </div>
-            <div className="p-5 relative z-10 bg-zinc-900">
-                <h4 className={`text-xl font-bold mb-4 ${pokemon.textColor}`}>{pokemon.name} <span className="text-zinc-500 text-sm">#{tokenId}</span></h4>
-                <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500">Attack</span>
-                        <span className="text-red-400 font-mono font-bold">{attack}</span>
-                    </div>
-                    <div className="w-full bg-zinc-800 rounded-full h-1.5"><div className="bg-red-500 h-1.5 rounded-full" style={{ width: `${Math.min((attack / 60) * 100, 100)}%` }} /></div>
-
-                    <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500">Defense</span>
-                        <span className="text-blue-400 font-mono font-bold">{defense}</span>
-                    </div>
-                    <div className="w-full bg-zinc-800 rounded-full h-1.5"><div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${Math.min((defense / 60) * 100, 100)}%` }} /></div>
-
-                    <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500">Speed</span>
-                        <span className="text-yellow-400 font-mono font-bold">{speed}</span>
-                    </div>
-                    <div className="w-full bg-zinc-800 rounded-full h-1.5"><div className="bg-yellow-500 h-1.5 rounded-full" style={{ width: `${Math.min((speed / 60) * 100, 100)}%` }} /></div>
-                </div>
-
-                <button className={`w-full mt-6 py-2 bg-gradient-to-r ${pokemon.gradient} text-white text-sm font-semibold rounded-lg transition-all hover:brightness-110`}>
-                    Stake in Escrow
-                </button>
-            </div>
-        </div>
-    );
-}
+import { Loader2, Swords } from 'lucide-react';
+import { CardDefinition, TIER_COLORS, TIER_BORDER_GLOW, getTierConfig, CardTier } from '@/lib/cards';
+import { getPlayerCards, OwnedCard } from '@/lib/inventory';
 
 export default function Collection() {
     const { address, isConnected } = useAccount();
+    const [cards, setCards] = useState<(OwnedCard & { card: CardDefinition })[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [filterTier, setFilterTier] = useState<CardTier | 'all'>('all');
 
-    const { data: balanceData, isLoading: isBalanceLoading, error: readError } = useReadContract({
-        abi: MonadMonsABI,
-        address: MONAD_MONS_ADDRESS,
-        functionName: 'balanceOf',
-        args: address ? [address] : undefined,
-        query: {
-            enabled: !!address,
-        }
-    });
+    useEffect(() => {
+        if (!address) return;
+        setLoading(true);
+        getPlayerCards(address).then(data => {
+            setCards(data);
+            setLoading(false);
+        });
+    }, [address]);
 
-    const balance = balanceData ? Number(balanceData) : 0;
+    const filteredCards = filterTier === 'all' ? cards : cards.filter(c => c.card.tier === filterTier);
+
+    // Calculate collection stats
+    const totalValue = cards.reduce((sum, c) => sum + c.card.value, 0);
+    const tierCounts: Record<string, number> = {};
+    cards.forEach(c => { tierCounts[c.card.tier] = (tierCounts[c.card.tier] || 0) + 1; });
 
     if (!isConnected) {
         return (
@@ -125,24 +43,17 @@ export default function Collection() {
         <div className="max-w-7xl mx-auto px-4 py-12">
             <h1 className="text-4xl font-extrabold mb-8 bg-gradient-to-r from-pink-500 to-rose-400 bg-clip-text text-transparent text-center md:text-left">My Pokémons</h1>
 
-            {readError && (
-                <div className="max-w-3xl mx-auto mb-12 p-6 rounded-xl bg-red-500/10 border border-red-500/50 text-red-500 font-medium whitespace-pre-wrap break-all shadow-[0_0_20px_-5px_rgba(239,68,68,0.3)]">
-                    <h3 className="text-lg font-bold mb-2">Error connecting to Monad Network</h3>
-                    <p className="text-sm font-mono opacity-80">{readError.message}</p>
+            {loading ? (
+                <div className="flex flex-col items-center justify-center py-24">
+                    <Loader2 className="animate-spin w-12 h-12 text-pink-500 mb-4" />
+                    <span className="text-zinc-400">Loading collection...</span>
                 </div>
-            )}
-
-            {isBalanceLoading ? (
-                <div className="flex items-center justify-center py-24">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500"></div>
-                    <span className="ml-4 text-zinc-400">Loading collection from Monad network...</span>
-                </div>
-            ) : balance === 0 ? (
+            ) : cards.length === 0 ? (
                 <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-12 text-center max-w-2xl mx-auto mt-12">
                     <div className="text-6xl mb-6 opacity-50 grayscale">🎒</div>
                     <h2 className="text-2xl font-bold text-white mb-4">Your Bag is Empty</h2>
                     <p className="text-zinc-400 mb-8 max-w-md mx-auto">
-                        You don't own any MonadMons yet! Visit the Poké Mart to claim your free daily drop or mint a Legendary Premium Pokémon.
+                        You don&apos;t own any MonadMons yet! Visit the Poké Mart to claim your free starter, grab daily drops, or mint Premium cards.
                     </p>
                     <Link href="/shop" className="inline-block px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(59,130,246,0.5)]">
                         Go to Poké Mart
@@ -150,20 +61,125 @@ export default function Collection() {
                 </div>
             ) : (
                 <>
-                    <div className="mb-8 text-zinc-400 bg-white/5 p-4 rounded-xl border border-white/5 inline-block">
-                        <span className="font-bold text-white tracking-widest uppercase text-sm">Wallet Balance:</span>
-                        <span className="ml-2 font-mono text-pink-400 text-xl font-bold">{balance}</span> MonadMons
+                    {/* ─── Collection Stats Bar ─── */}
+                    <div className="flex flex-wrap gap-4 mb-8 items-center">
+                        <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                            <span className="font-bold text-white tracking-widest uppercase text-sm">Total Cards:</span>
+                            <span className="ml-2 font-mono text-pink-400 text-xl font-bold">{cards.length}</span>
+                        </div>
+                        <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                            <span className="font-bold text-white tracking-widest uppercase text-sm">Total Value:</span>
+                            <span className="ml-2 font-mono text-amber-400 text-xl font-bold">{totalValue.toLocaleString()}</span>
+                            <span className="text-zinc-500 ml-1">pts</span>
+                        </div>
+                        {Object.entries(tierCounts).map(([tier, count]) => (
+                            <div key={tier} className={`px-3 py-2 rounded-lg border text-sm font-bold ${TIER_COLORS[tier as CardTier]}`}>
+                                {tier}: {count}
+                            </div>
+                        ))}
                     </div>
 
-                    {/* UI Mock: Rendering generic "Premium" and "Standard" cards based on balance */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {Array.from({ length: balance }).map((_, i) => (
-                            <PokemonCard key={i} index={i} owner={address as `0x${string}`} />
-                        ))}
+                    {/* ─── Tier Filter ─── */}
+                    <div className="flex gap-2 mb-8 flex-wrap">
+                        <button
+                            onClick={() => setFilterTier('all')}
+                            className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${filterTier === 'all' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+                        >
+                            All ({cards.length})
+                        </button>
+                        {(['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'] as CardTier[]).map(tier => {
+                            const count = tierCounts[tier] || 0;
+                            if (count === 0) return null;
+                            return (
+                                <button
+                                    key={tier}
+                                    onClick={() => setFilterTier(tier)}
+                                    className={`px-4 py-2 rounded-lg font-bold text-sm transition-all border ${filterTier === tier ? TIER_COLORS[tier] : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border-transparent'}`}
+                                >
+                                    {tier} ({count})
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* ─── Card Grid ─── */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {filteredCards.map((owned) => {
+                            const card = owned.card;
+                            const tierConf = getTierConfig(card.tier);
+
+                            return (
+                                <div
+                                    key={owned.id}
+                                    className={`bg-zinc-900 border rounded-2xl overflow-hidden shadow-lg group hover:scale-[1.02] transform transition-all duration-300 relative ${TIER_BORDER_GLOW[card.tier]}`}
+                                >
+                                    {/* Card Image */}
+                                    <div className={`h-48 bg-gradient-to-tr ${card.color} opacity-80 flex flex-col items-center justify-center relative`}>
+                                        <div className="absolute inset-0 bg-black/40" />
+
+                                        <div className={`absolute top-3 right-3 text-xs px-3 py-1 rounded-full font-bold uppercase tracking-widest z-20 backdrop-blur-md border ${TIER_COLORS[card.tier]}`}>
+                                            {card.tier} {tierConf.badge}
+                                        </div>
+
+                                        <div className="relative w-32 h-32 z-10 group-hover:scale-110 transition-transform duration-500 drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)]">
+                                            <Image src={card.image} alt={card.name} fill className="object-contain" />
+                                        </div>
+                                    </div>
+
+                                    {/* Card Details */}
+                                    <div className="p-5 relative z-10 bg-zinc-900">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <h4 className={`text-xl font-bold ${card.textColor}`}>{card.name}</h4>
+                                                <p className="text-zinc-500 text-xs mt-1">{card.type}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-amber-400 font-mono font-bold text-sm">{card.value} pts</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Stats */}
+                                        <div className="space-y-2 mb-4">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-zinc-500">HP</span>
+                                                <span className="text-emerald-400 font-mono font-bold">{card.maxHp}</span>
+                                            </div>
+                                            <div className="w-full bg-zinc-800 rounded-full h-1.5">
+                                                <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${Math.min((card.maxHp / 360) * 100, 100)}%` }} />
+                                            </div>
+
+                                            {/* Moves Preview */}
+                                            <div className="flex gap-1 mt-3">
+                                                {card.moves.map((m, i) => (
+                                                    <span key={i} className={`text-xs px-2 py-1 rounded-md font-bold
+                                                        ${m.type === 'attack' ? 'bg-red-500/10 text-red-400' : m.type === 'power' ? 'bg-orange-500/10 text-orange-400' : 'bg-blue-500/10 text-blue-400'}
+                                                    `}>
+                                                        {m.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Acquired info */}
+                                        <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                                            <span className="text-xs text-zinc-600 capitalize">
+                                                via {owned.acquired_via.replace('_', ' ')}
+                                            </span>
+                                            <span className="text-xs text-zinc-600">
+                                                {new Date(owned.acquired_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
+
+                                        <Link href="/battle" className={`w-full mt-4 py-2 bg-gradient-to-r ${card.color} text-white text-sm font-semibold rounded-lg transition-all hover:brightness-110 flex items-center justify-center gap-2`}>
+                                            <Swords className="w-4 h-4" /> Battle with this card
+                                        </Link>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </>
             )}
-
         </div>
     );
 }

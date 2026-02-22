@@ -2,45 +2,60 @@
 
 import { useAccount } from 'wagmi';
 import { useState, useEffect, useRef } from 'react';
-import { Shield, Swords, Zap, Loader2 } from 'lucide-react';
+import { Shield, Swords, Zap, Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { CardDefinition, Move, TIER_COLORS, TIER_BORDER_GLOW, getTierConfig } from '@/lib/cards';
+import { getPlayerCards, transferCard, OwnedCard } from '@/lib/inventory';
+import Link from 'next/link';
 
 type Phase = 'JOIN' | 'SELECT_CARD' | 'WAITING' | 'BATTLE' | 'RESULT';
-
-interface Move { name: string; type: 'attack' | 'power' | 'defense'; value: number; description: string; }
-interface Card { id: string; name: string; image: string; type: string; color: string; maxHp: number; moves: Move[]; }
-
-const MOCK_COLLECTION: Card[] = [
-    { id: '1', name: 'Charizard', image: '/images/charizaed.png', type: 'Fire', color: 'from-orange-500 to-red-600', maxHp: 200, moves: [{ name: 'Flamethrower', type: 'attack', value: 35, description: '' }, { name: 'Fire Blast', type: 'power', value: 65, description: '' }, { name: 'Smokescreen', type: 'defense', value: 20, description: '' }] },
-    { id: '2', name: 'Blastoise', image: '/images/blastois.png', type: 'Water', color: 'from-blue-500 to-cyan-600', maxHp: 220, moves: [{ name: 'Water Gun', type: 'attack', value: 30, description: '' }, { name: 'Hydro Pump', type: 'power', value: 60, description: '' }, { name: 'Shell Smash', type: 'defense', value: 30, description: '' }] },
-    { id: '3', name: 'Venusaur', image: '/images/venasaur.png', type: 'Grass', color: 'from-green-500 to-emerald-600', maxHp: 240, moves: [{ name: 'Vine Whip', type: 'attack', value: 25, description: '' }, { name: 'Solar Beam', type: 'power', value: 70, description: '' }, { name: 'Synthesis', type: 'defense', value: 40, description: 'Heals HP' }] },
-    { id: '4', name: 'Pikachu', image: '/images/pikachu.png', type: 'Electric', color: 'from-yellow-400 to-amber-500', maxHp: 160, moves: [{ name: 'Thunder Shock', type: 'attack', value: 40, description: '' }, { name: 'Thunder', type: 'power', value: 80, description: '' }, { name: 'Double Team', type: 'defense', value: 15, description: '' }] }
-];
 
 export default function BattleLobby() {
     const { address, isConnected } = useAccount();
     const [phase, setPhase] = useState<Phase>('JOIN');
     const [roomCode, setRoomCode] = useState('');
     const [isPlayer1, setIsPlayer1] = useState<boolean>(false);
+    const isPlayer1Ref = useRef(false);
 
-    const [myCard, setMyCard] = useState<Card | null>(null);
-    const [opponentCard, setOpponentCard] = useState<Card | null>(null);
+    // Owned cards for selection
+    const [ownedCards, setOwnedCards] = useState<(OwnedCard & { card: CardDefinition })[]>([]);
+    const [loadingCards, setLoadingCards] = useState(false);
+    const [selectedOwnedCard, setSelectedOwnedCard] = useState<(OwnedCard & { card: CardDefinition }) | null>(null);
+
+    // Battle state
+    const [myCard, setMyCard] = useState<CardDefinition | null>(null);
+    const [myOwnedCardId, setMyOwnedCardId] = useState<string | null>(null);
+    const [opponentCard, setOpponentCard] = useState<CardDefinition | null>(null);
     const [myHp, setMyHp] = useState(0);
     const [opponentHp, setOpponentHp] = useState(0);
     const [myShield, setMyShield] = useState(0);
     const [opponentShield, setOpponentShield] = useState(0);
     const [winner, setWinner] = useState<'me' | 'opponent' | null>(null);
     const [battleLog, setBattleLog] = useState<string[]>([]);
-    const [animatingCard, setAnimatingCard] = useState<'me' | 'opponent' | null>(null);
     const [myMoveSubmitted, setMyMoveSubmitted] = useState(false);
     const [opponentMoveSubmitted, setOpponentMoveSubmitted] = useState(false);
     const [resolving, setResolving] = useState(false);
+    const [transferring, setTransferring] = useState(false);
+    const [transferDone, setTransferDone] = useState(false);
+    const [wonCardName, setWonCardName] = useState<string | null>(null);
 
     const logEndRef = useRef<HTMLDivElement>(null);
     const isResolvingRef = useRef(false);
     const myMoveSubmittedRef = useRef(false);
+    const opponentCardRef = useRef<CardDefinition | null>(null);
 
     useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [battleLog]);
+
+    // Load player's owned cards when entering card selection
+    useEffect(() => {
+        if (phase === 'SELECT_CARD' && address) {
+            setLoadingCards(true);
+            getPlayerCards(address).then(cards => {
+                setOwnedCards(cards);
+                setLoadingCards(false);
+            });
+        }
+    }, [phase, address]);
 
     // Supabase subscription
     useEffect(() => {
@@ -66,19 +81,20 @@ export default function BattleLobby() {
 
         const p1Card = data.player1_card;
         const p2Card = data.player2_card;
+        const amP1 = isPlayer1Ref.current; // Use ref to avoid stale closure
 
-        if (p1Card && p2Card && data.status === 'battle' && phase === 'WAITING') {
+        if (p1Card && p2Card && data.status === 'battle') {
             setPhase('BATTLE');
         }
 
-        if (isPlayer1) {
-            if (p2Card && !opponentCard) setOpponentCard(p2Card);
+        if (amP1) {
+            if (p2Card && !opponentCardRef.current) { setOpponentCard(p2Card); opponentCardRef.current = p2Card; }
             setMyHp(data.player1_hp); setOpponentHp(data.player2_hp);
             setMyShield(data.player1_shield); setOpponentShield(data.player2_shield);
             if (data.winner === 'player1') { setWinner('me'); setPhase('RESULT'); }
             else if (data.winner === 'player2') { setWinner('opponent'); setPhase('RESULT'); }
         } else {
-            if (p1Card && !opponentCard) setOpponentCard(p1Card);
+            if (p1Card && !opponentCardRef.current) { setOpponentCard(p1Card); opponentCardRef.current = p1Card; }
             setMyHp(data.player2_hp); setOpponentHp(data.player1_hp);
             setMyShield(data.player2_shield); setOpponentShield(data.player1_shield);
             if (data.winner === 'player2') { setWinner('me'); setPhase('RESULT'); }
@@ -87,19 +103,15 @@ export default function BattleLobby() {
 
         setBattleLog(data.action_log || []);
 
-        // Track opponent move status
-        const oppMove = isPlayer1 ? data.player2_move : data.player1_move;
+        const oppMove = amP1 ? data.player2_move : data.player1_move;
         setOpponentMoveSubmitted(!!oppMove);
 
-        // If both moves are in and I haven't submitted mine yet, don't resolve
-        // If both moves are in, Player 1 resolves the round
-        if (data.player1_move && data.player2_move && isPlayer1 && !isResolvingRef.current) {
+        if (data.player1_move && data.player2_move && amP1 && !isResolvingRef.current) {
             isResolvingRef.current = true;
             setResolving(true);
             resolveRound(data);
         }
 
-        // After resolution, moves are cleared — reset submitted state
         if (!data.player1_move && !data.player2_move && myMoveSubmittedRef.current) {
             setMyMoveSubmitted(false);
             myMoveSubmittedRef.current = false;
@@ -109,11 +121,11 @@ export default function BattleLobby() {
         }
     };
 
-    const applyMove = (move: Move, attackerCard: Card, isAttackerP1: boolean, p1Hp: number, p2Hp: number, p1Shield: number, p2Shield: number) => {
+    const applyMove = (move: Move, attackerCard: CardDefinition, isAttackerP1: boolean, p1Hp: number, p2Hp: number, p1Shield: number, p2Shield: number) => {
         let logEntry = `${isAttackerP1 ? 'P1' : 'P2'} (${attackerCard.name}) used ${move.name}!`;
 
         if (move.type === 'defense') {
-            if (attackerCard.name === 'Venusaur') {
+            if (move.description?.includes('Heals') || move.description?.includes('Recover')) {
                 if (isAttackerP1) p1Hp = Math.min(attackerCard.maxHp, p1Hp + move.value);
                 else p2Hp = Math.min(attackerCard.maxHp, p2Hp + move.value);
                 logEntry += ` Recovered HP.`;
@@ -140,15 +152,13 @@ export default function BattleLobby() {
     const resolveRound = async (data: any) => {
         const p1Move = data.player1_move as Move;
         const p2Move = data.player2_move as Move;
-        const p1Card = data.player1_card as Card;
-        const p2Card = data.player2_card as Card;
+        const p1Card = data.player1_card as CardDefinition;
+        const p2Card = data.player2_card as CardDefinition;
         let logs = [...(data.action_log || []), `--- ROUND ---`];
 
-        // Apply P1's move
         let res = applyMove(p1Move, p1Card, true, data.player1_hp, data.player2_hp, data.player1_shield, data.player2_shield);
         logs.push(res.logEntry);
 
-        // Apply P2's move on the post-P1 state
         let res2 = applyMove(p2Move, p2Card, false, res.p1Hp, res.p2Hp, res.p1Shield, res.p2Shield);
         logs.push(res2.logEntry);
 
@@ -168,36 +178,131 @@ export default function BattleLobby() {
     };
 
     const confirmCardSelection = async () => {
-        if (!myCard) return;
-        setPhase('WAITING');
+        if (!selectedOwnedCard) return;
+        const card = selectedOwnedCard.card;
+        setMyCard(card);
+        setMyOwnedCardId(selectedOwnedCard.id);
+        setMyHp(card.maxHp);
+        setMyShield(0);
+
         const { data: room } = await supabase.from('rooms').select('*').eq('id', roomCode).single();
 
         if (!room) {
+            // I am Player 1
+            isPlayer1Ref.current = true;
             setIsPlayer1(true);
-            await supabase.from('rooms').insert({
-                id: roomCode, player1_address: address, player1_card: myCard,
-                player1_hp: myCard.maxHp, player1_shield: 0, status: 'waiting',
-                action_log: [`Room created. Waiting for Player 2...`]
+
+            const initLog = [`Room created. ${card.name} (${card.tier}) enters the arena. Waiting for Player 2...`];
+            setBattleLog(initLog); // Show immediately in UI
+
+            const { error } = await supabase.from('rooms').insert({
+                id: roomCode,
+                player1_address: address,
+                player1_card: card,
+                player1_hp: card.maxHp,
+                player1_shield: 0,
+                status: 'waiting',
+                action_log: initLog
             });
+
+            if (error) {
+                console.error('Failed to create room:', error);
+                setBattleLog([`Error creating room: ${error.message}`]);
+                return;
+            }
+
+            // Phase change AFTER successful insert so subscription sees the room
+            setPhase('WAITING');
         } else {
+            // I am Player 2
+            isPlayer1Ref.current = false;
             setIsPlayer1(false);
-            const logs = [...(room.action_log || []), `Player 2 joined! Match starts.`];
-            await supabase.from('rooms').update({
-                player2_address: address, player2_card: myCard,
-                player2_hp: myCard.maxHp, player2_shield: 0,
-                status: 'battle', action_log: logs
+
+            const logs = [...(room.action_log || []), `Player 2 joined with ${card.name} (${card.tier})! Match starts.`];
+            setBattleLog(logs); // Show immediately in UI
+
+            // Set opponent card from existing room data
+            if (room.player1_card) {
+                setOpponentCard(room.player1_card);
+                opponentCardRef.current = room.player1_card;
+                setOpponentHp(room.player1_hp || 0);
+            }
+
+            const { error } = await supabase.from('rooms').update({
+                player2_address: address,
+                player2_card: card,
+                player2_hp: card.maxHp,
+                player2_shield: 0,
+                status: 'battle',
+                action_log: logs
             }).eq('id', roomCode);
+
+            if (error) {
+                console.error('Failed to join room:', error);
+                setBattleLog([`Error joining room: ${error.message}`]);
+                return;
+            }
+
+            // Phase change AFTER successful update
             setPhase('BATTLE');
         }
     };
 
     const submitMove = async (move: Move) => {
-        if (myMoveSubmittedRef.current || !myCard || !opponentCard) return;
+        if (myMoveSubmittedRef.current || !myCard || !opponentCardRef.current) return;
         setMyMoveSubmitted(true);
         myMoveSubmittedRef.current = true;
-        const field = isPlayer1 ? 'player1_move' : 'player2_move';
+        const field = isPlayer1Ref.current ? 'player1_move' : 'player2_move';
         await supabase.from('rooms').update({ [field]: move }).eq('id', roomCode);
     };
+
+    // Handle card transfer after battle
+    const handlePostBattle = async () => {
+        if (transferDone || !roomCode || !address) return;
+        setTransferring(true);
+
+        try {
+            const { data: room } = await supabase.from('rooms').select('*').eq('id', roomCode).single();
+            if (!room) { setTransferring(false); return; }
+
+            const iAmP1 = isPlayer1Ref.current;
+            const iWon = winner === 'me';
+
+            if (iWon && room.winner !== 'draw') {
+                const loserAddress = iAmP1 ? room.player2_address : room.player1_address;
+                const loserCard = iAmP1 ? room.player2_card : room.player1_card;
+
+                if (loserAddress && loserCard) {
+                    // Find the loser's owned card record by address and card_id
+                    const { data: loserOwnedCards } = await supabase
+                        .from('player_cards')
+                        .select('id')
+                        .eq('owner_address', loserAddress.toLowerCase())
+                        .eq('card_id', loserCard.id)
+                        .limit(1);
+
+                    if (loserOwnedCards && loserOwnedCards.length > 0) {
+                        const result = await transferCard(loserOwnedCards[0].id, loserAddress, address);
+                        if (result.success) {
+                            setWonCardName(loserCard?.name || 'Unknown');
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Transfer error:', err);
+        }
+
+        setTransferDone(true);
+        setTransferring(false);
+    };
+
+    // Auto-trigger card transfer when result is shown
+    useEffect(() => {
+        if (phase === 'RESULT' && !transferDone) {
+            handlePostBattle();
+        }
+    }, [phase]);
 
     if (!isConnected) return (
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-4">
@@ -206,6 +311,7 @@ export default function BattleLobby() {
         </div>
     );
 
+    // ─── PHASE: JOIN ROOM ───
     if (phase === 'JOIN') {
         return (
             <div className="max-w-3xl mx-auto px-4 py-20 flex flex-col items-center relative z-10">
@@ -214,12 +320,11 @@ export default function BattleLobby() {
                 </div>
 
                 <h1 className="text-5xl font-extrabold mb-4 text-center bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">Enter the Arena</h1>
-                <p className="text-zinc-400 text-center mb-12 max-w-lg text-lg">Stake your Monad in the Escrow. The victor of the battle claims both cards.</p>
+                <p className="text-zinc-400 text-center mb-12 max-w-lg text-lg">Stake your MonadMon in the Escrow. The victor claims the opponent&apos;s card.</p>
 
                 <div className="w-full bg-black/60 backdrop-blur-xl p-10 rounded-3xl border border-white/10 flex flex-col md:flex-row gap-8 items-center shadow-2xl relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-orange-500/5" />
 
-                    {/* JOIN COLUMN */}
                     <div className="flex-1 w-full space-y-4 relative z-10">
                         <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest pl-1">Join Private Room</label>
                         <div className="flex gap-3">
@@ -243,7 +348,6 @@ export default function BattleLobby() {
 
                     <div className="text-zinc-600 font-bold px-4 relative z-10">OR</div>
 
-                    {/* CREATE COLUMN */}
                     <div className="flex-1 w-full space-y-4 relative z-10">
                         <label className="text-xs font-bold text-transparent select-none uppercase tracking-widest block pl-1">Create Room</label>
                         <button
@@ -261,6 +365,7 @@ export default function BattleLobby() {
         );
     }
 
+    // ─── PHASE: SELECT CARD (from owned cards only) ───
     if (phase === 'SELECT_CARD') {
         return (
             <div className="max-w-6xl mx-auto px-4 py-12 relative z-10">
@@ -269,22 +374,91 @@ export default function BattleLobby() {
                         Room Code: <span className="text-orange-400 font-bold text-lg">{roomCode}</span>
                     </div>
                     <h2 className="text-4xl font-extrabold text-white mb-4">Choose Your Fighter</h2>
-                    <p className="text-zinc-400 text-lg">Select a Monad from your collection to stake in the Escrow.</p>
+                    <p className="text-zinc-400 text-lg">Select a MonadMon from <span className="text-white font-bold">your collection</span> to stake in the Escrow.</p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                    {MOCK_COLLECTION.map((card) => (
-                        <div key={card.id} onClick={() => setMyCard(card)} className={`cursor-pointer rounded-3xl overflow-hidden transition-all ${myCard?.id === card.id ? 'ring-4 ring-orange-500 scale-105 shadow-[0_0_30px_rgba(249,115,22,0.3)]' : 'border border-white/10 opacity-75 hover:opacity-100 hover:border-white/30'}`}>
-                            <div className={`h-48 bg-gradient-to-br ${card.color} flex items-center justify-center`}><img src={card.image} className="h-full object-contain drop-shadow-2xl" /></div>
-                            <div className="p-4 bg-zinc-900 text-center font-bold text-xl">{card.name}</div>
+                {loadingCards ? (
+                    <div className="flex flex-col items-center justify-center py-20">
+                        <Loader2 className="animate-spin w-10 h-10 text-orange-400 mb-4" />
+                        <p className="text-zinc-400">Loading your collection...</p>
+                    </div>
+                ) : ownedCards.length === 0 ? (
+                    <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-12 text-center max-w-2xl mx-auto">
+                        <AlertTriangle className="w-16 h-16 text-amber-400 mx-auto mb-6 opacity-70" />
+                        <h3 className="text-2xl font-bold text-white mb-4">No Cards Available</h3>
+                        <p className="text-zinc-400 mb-8 max-w-md mx-auto">
+                            You need to own at least one MonadMon to enter the arena. Visit the Shop to buy or claim cards first!
+                        </p>
+                        <div className="flex gap-4 justify-center">
+                            <Link href="/shop" className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(59,130,246,0.5)]">
+                                Go to Shop
+                            </Link>
+                            <button onClick={() => setPhase('JOIN')} className="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-all border border-white/10">
+                                Back
+                            </button>
                         </div>
-                    ))}
-                </div>
-                <div className="flex justify-center"><button onClick={confirmCardSelection} disabled={!myCard} className="bg-white text-black font-black py-4 px-12 rounded-full disabled:opacity-50 hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all">STAKE & ENTER</button></div>
+                    </div>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
+                            {ownedCards.map((owned) => {
+                                const card = owned.card;
+                                const tierConf = getTierConfig(card.tier);
+                                const isSelected = selectedOwnedCard?.id === owned.id;
+
+                                return (
+                                    <div
+                                        key={owned.id}
+                                        onClick={() => setSelectedOwnedCard(owned)}
+                                        className={`cursor-pointer rounded-3xl overflow-hidden transition-all duration-300
+                                            ${isSelected
+                                                ? 'ring-4 ring-orange-500 scale-105 shadow-[0_0_30px_rgba(249,115,22,0.3)]'
+                                                : `border ${TIER_BORDER_GLOW[card.tier]} opacity-80 hover:opacity-100 hover:scale-[1.02]`
+                                            }`}
+                                    >
+                                        {/* Card Image */}
+                                        <div className={`h-48 bg-gradient-to-br ${card.color} flex items-center justify-center relative`}>
+                                            <img src={card.image} className="h-full object-contain drop-shadow-2xl" />
+                                            {/* Tier Badge */}
+                                            <div className={`absolute top-3 right-3 text-xs px-3 py-1 rounded-full font-bold uppercase tracking-widest backdrop-blur-md border ${TIER_COLORS[card.tier]}`}>
+                                                {card.tier}
+                                            </div>
+                                        </div>
+
+                                        {/* Card Info */}
+                                        <div className="p-4 bg-zinc-900">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <h4 className={`font-bold text-lg ${card.textColor}`}>{card.name}</h4>
+                                                <span className="text-xs text-zinc-500 font-mono">{tierConf.badge}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs text-zinc-500">
+                                                <span>HP: {card.maxHp}</span>
+                                                <span>Value: {card.value} pts</span>
+                                            </div>
+                                            <div className="text-xs text-zinc-600 mt-1 capitalize">
+                                                via {owned.acquired_via.replace('_', ' ')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="flex justify-center">
+                            <button
+                                onClick={confirmCardSelection}
+                                disabled={!selectedOwnedCard}
+                                className="bg-white text-black font-black py-4 px-12 rounded-full disabled:opacity-50 hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all text-lg"
+                            >
+                                STAKE & ENTER
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
         );
     }
 
+    // ─── PHASE: BATTLE ───
     if (phase === 'WAITING' || phase === 'BATTLE') {
         const getBattleStatus = () => {
             if (phase === 'WAITING') return { text: 'Waiting For Player 2...', color: 'text-zinc-400' };
@@ -316,10 +490,16 @@ export default function BattleLobby() {
                 </div>
 
                 <div className="flex flex-col md:flex-row w-full justify-center items-start gap-8 md:gap-24 relative z-10 transition-all">
+                    {/* MY CARD */}
                     <div className="flex flex-col items-center gap-4 transition-all">
                         <span className="text-xl font-bold bg-white/10 px-6 py-2 rounded-full text-white">You ({myHp} HP)</span>
-                        <div className="w-72 bg-zinc-900 border-2 border-orange-500 rounded-3xl overflow-hidden shadow-[0_0_30px_rgba(249,115,22,0.3)]">
-                            <img src={myCard!.image} className={`w-full h-48 bg-gradient-to-br ${myCard!.color} object-contain p-4`} />
+                        <div className={`w-72 bg-zinc-900 border-2 border-orange-500 rounded-3xl overflow-hidden shadow-[0_0_30px_rgba(249,115,22,0.3)]`}>
+                            <div className="relative">
+                                <img src={myCard!.image} className={`w-full h-48 bg-gradient-to-br ${myCard!.color} object-contain p-4`} />
+                                <div className={`absolute top-2 right-2 text-xs px-2 py-1 rounded-full font-bold uppercase tracking-widest backdrop-blur-md border ${TIER_COLORS[myCard!.tier]}`}>
+                                    {myCard!.tier}
+                                </div>
+                            </div>
                             <div className="p-4 bg-zinc-950 space-y-2 relative overflow-hidden">
                                 <div className="w-full bg-red-900 rounded-full h-2 mb-2"><div className="bg-emerald-500 h-2 rounded-full transition-all" style={{ width: `${Math.max(0, (myHp / myCard!.maxHp) * 100)}%` }} /></div>
                                 {myShield > 0 && <span className="text-xs text-blue-400 font-bold block mb-2 text-center bg-blue-500/10 py-1 rounded">🛡️ Shield: {myShield}</span>}
@@ -341,12 +521,18 @@ export default function BattleLobby() {
 
                     <div className="font-black text-5xl text-white/50 self-center hidden md:block">VS</div>
 
+                    {/* OPPONENT CARD */}
                     <div className="flex flex-col items-center gap-4 transition-all">
                         <span className="text-xl font-bold bg-white/10 px-6 py-2 rounded-full text-white">Opponent {opponentCard && `(${opponentHp} HP)`}</span>
                         <div className="w-72 bg-zinc-900 border-2 border-white/10 rounded-3xl overflow-hidden">
                             {opponentCard ? (
                                 <>
-                                    <img src={opponentCard.image} className={`w-full h-48 bg-gradient-to-br ${opponentCard.color} object-contain p-4`} />
+                                    <div className="relative">
+                                        <img src={opponentCard.image} className={`w-full h-48 bg-gradient-to-br ${opponentCard.color} object-contain p-4`} />
+                                        <div className={`absolute top-2 right-2 text-xs px-2 py-1 rounded-full font-bold uppercase tracking-widest backdrop-blur-md border ${TIER_COLORS[opponentCard.tier]}`}>
+                                            {opponentCard.tier}
+                                        </div>
+                                    </div>
                                     <div className="p-4 bg-zinc-950 space-y-2">
                                         <div className="w-full bg-red-900 rounded-full h-2 mb-2"><div className="bg-emerald-500 h-2 rounded-full transition-all" style={{ width: `${Math.max(0, (opponentHp / opponentCard.maxHp) * 100)}%` }} /></div>
                                         {opponentShield > 0 && <span className="text-xs text-blue-400 font-bold block mb-2 text-center bg-blue-500/10 py-1 rounded">🛡️ Shield: {opponentShield}</span>}
@@ -362,38 +548,78 @@ export default function BattleLobby() {
                     </div>
                 </div>
 
+                {/* Battle Log */}
                 <div className="mt-12 max-w-2xl mx-auto w-full bg-black/60 border border-white/10 rounded-2xl p-4 h-40 overflow-y-auto font-mono text-sm space-y-2">
                     <div className="sticky top-0 bg-black/80 text-xs font-bold text-zinc-500 mb-2 pb-2 border-b border-white/5 z-10">BATTLE LOG</div>
                     {battleLog.length === 0 && <p className="text-zinc-600 italic">Waiting to begin...</p>}
-                    {battleLog.map((log, i) => <div key={i} className={`animate-fade-in ${log.includes('P1') ? 'text-blue-400' : ''} ${log.includes('P2') ? 'text-orange-400' : ''} ${log.includes('ROUND') ? 'text-zinc-600 font-bold' : ''} ${log.includes('Match starts') ? 'text-emerald-400 font-bold' : ''}`}>&gt; {log}</div>)}
+                    {battleLog.map((log, i) => <div key={i} className={`animate-fade-in ${log.includes('P1') ? 'text-blue-400' : ''} ${log.includes('P2') ? 'text-orange-400' : ''} ${log.includes('ROUND') ? 'text-zinc-600 font-bold' : ''} ${log.includes('Match starts') || log.includes('joined') ? 'text-emerald-400 font-bold' : ''}`}>&gt; {log}</div>)}
                     <div ref={logEndRef} />
                 </div>
             </div>
         );
     }
 
+    // ─── PHASE: RESULT ───
     if (phase === 'RESULT') {
         const handlePlayAgain = async () => {
             if (roomCode) {
-                // Terminate and clean up the room so the code can be reused
                 await supabase.from('rooms').delete().eq('id', roomCode);
             }
             setPhase('JOIN');
             setRoomCode('');
             setMyCard(null);
+            setMyOwnedCardId(null);
             setOpponentCard(null);
+            setSelectedOwnedCard(null);
             setWinner(null);
             setBattleLog([]);
             setMyHp(0);
             setOpponentHp(0);
+            setTransferDone(false);
+            setWonCardName(null);
         };
 
         return (
             <div className="max-w-4xl mx-auto px-4 py-20 flex flex-col items-center">
-                <div className="text-6xl mb-6">{winner === 'me' ? '🏆' : '💀'}</div>
+                <div className="text-8xl mb-6">{winner === 'me' ? '🏆' : '💀'}</div>
                 <h1 className="text-6xl font-black mb-6 text-center text-white">{winner === 'me' ? 'VICTORY!' : 'DEFEATED'}</h1>
-                <p className="text-zinc-400 text-center mb-12 text-xl max-w-lg">{winner === 'me' ? 'You won both cards from the Escrow.' : 'Your card was lost to the opponent.'}</p>
-                <button onClick={handlePlayAgain} className="bg-white text-black font-black py-4 px-12 rounded-full text-xl shadow-xl hover:scale-105 transition-transform">PLAY AGAIN</button>
+
+                {/* Card transfer status */}
+                {transferring && (
+                    <div className="flex items-center gap-3 text-amber-400 mb-6">
+                        <Loader2 className="animate-spin w-5 h-5" />
+                        <span className="font-bold">Transferring cards...</span>
+                    </div>
+                )}
+
+                {transferDone && winner === 'me' && wonCardName && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 mb-8 text-center max-w-md">
+                        <p className="text-emerald-400 font-bold text-lg mb-1">🎉 Card Acquired!</p>
+                        <p className="text-zinc-300">You won <span className="text-white font-bold">{wonCardName}</span> from your opponent. It has been added to your collection!</p>
+                    </div>
+                )}
+
+                {transferDone && winner === 'opponent' && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-6 mb-8 text-center max-w-md">
+                        <p className="text-red-400 font-bold text-lg mb-1">Card Lost</p>
+                        <p className="text-zinc-300">Your <span className="text-white font-bold">{myCard?.name}</span> has been transferred to the winner.</p>
+                    </div>
+                )}
+
+                <p className="text-zinc-400 text-center mb-12 text-xl max-w-lg">
+                    {winner === 'me'
+                        ? 'The opponent\'s card has been transferred to your collection from the Escrow.'
+                        : 'Your staked card was lost to the opponent.'}
+                </p>
+
+                <div className="flex gap-4">
+                    <button onClick={handlePlayAgain} className="bg-white text-black font-black py-4 px-12 rounded-full text-xl shadow-xl hover:scale-105 transition-transform">
+                        PLAY AGAIN
+                    </button>
+                    <Link href="/collection" className="bg-zinc-800 text-white font-bold py-4 px-8 rounded-full text-xl border border-white/10 hover:bg-zinc-700 transition-all flex items-center">
+                        View Collection
+                    </Link>
+                </div>
             </div>
         );
     }
