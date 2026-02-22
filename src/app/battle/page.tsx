@@ -30,7 +30,7 @@ export default function BattleLobby() {
     const [opponentHp, setOpponentHp] = useState(0);
     const [myShield, setMyShield] = useState(0);
     const [opponentShield, setOpponentShield] = useState(0);
-    const [winner, setWinner] = useState<'me' | 'opponent' | null>(null);
+    const [winner, setWinner] = useState<'me' | 'opponent' | 'draw' | null>(null);
     const [battleLog, setBattleLog] = useState<string[]>([]);
     const [myMoveSubmitted, setMyMoveSubmitted] = useState(false);
     const [opponentMoveSubmitted, setOpponentMoveSubmitted] = useState(false);
@@ -93,12 +93,14 @@ export default function BattleLobby() {
             setMyShield(data.player1_shield); setOpponentShield(data.player2_shield);
             if (data.winner === 'player1') { setWinner('me'); setPhase('RESULT'); }
             else if (data.winner === 'player2') { setWinner('opponent'); setPhase('RESULT'); }
+            else if (data.winner === 'draw') { setWinner('draw'); setPhase('RESULT'); }
         } else {
             if (p1Card && !opponentCardRef.current) { setOpponentCard(p1Card); opponentCardRef.current = p1Card; }
             setMyHp(data.player2_hp); setOpponentHp(data.player1_hp);
             setMyShield(data.player2_shield); setOpponentShield(data.player1_shield);
             if (data.winner === 'player2') { setWinner('me'); setPhase('RESULT'); }
             else if (data.winner === 'player1') { setWinner('opponent'); setPhase('RESULT'); }
+            else if (data.winner === 'draw') { setWinner('draw'); setPhase('RESULT'); }
         }
 
         setBattleLog(data.action_log || []);
@@ -277,7 +279,7 @@ export default function BattleLobby() {
                     const { data: loserOwnedCards } = await supabase
                         .from('player_cards')
                         .select('id')
-                        .eq('owner_address', loserAddress.toLowerCase())
+                        .eq('owner_address', String(loserAddress).toLowerCase())
                         .eq('card_id', loserCard.id)
                         .limit(1);
 
@@ -306,8 +308,8 @@ export default function BattleLobby() {
 
     if (!isConnected) return (
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-4">
-            <h2 className="text-4xl font-black text-white text-center">Wallet Disconnected</h2>
-            <p className="mt-4 text-zinc-400">Connect your wallet to enter the battlefield.</p>
+            <h2 className="text-4xl font-black text-black uppercase bg-[#FF3366] text-white px-6 py-2 border-4 border-black shadow-[4px_4px_0_0_#000000] rotate-[-2deg]">Wallet Disconnected</h2>
+            <p className="mt-6 text-black font-bold">Connect your wallet to enter the battlefield.</p>
         </div>
     );
 
@@ -315,30 +317,29 @@ export default function BattleLobby() {
     if (phase === 'JOIN') {
         return (
             <div className="max-w-3xl mx-auto px-4 py-20 flex flex-col items-center relative z-10">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-rose-600 to-orange-500 flex items-center justify-center mb-8 shadow-lg shadow-orange-500/20">
-                    <Swords className="text-white w-10 h-10" />
+                <div className="w-20 h-20 bg-white border-4 border-black flex items-center justify-center mb-8 shadow-[8px_8px_0_0_#000000] rotate-[5deg]">
+                    <Swords className="text-black w-10 h-10" />
                 </div>
 
-                <h1 className="text-5xl font-extrabold mb-4 text-center bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">Enter the Arena</h1>
-                <p className="text-zinc-400 text-center mb-12 max-w-lg text-lg">Stake your MonadMon in the Escrow. The victor claims the opponent&apos;s card.</p>
+                <h1 className="text-6xl font-black mb-4 text-center text-black uppercase tracking-tighter drop-shadow-[4px_4px_0_rgba(0,0,0,0.1)]">Enter the Arena</h1>
+                <p className="text-black font-bold text-center mb-12 max-w-lg text-lg border-b-4 border-black pb-4">Stake your card in the Escrow. The victor of the battle claims the opponent's card.</p>
 
-                <div className="w-full bg-black/60 backdrop-blur-xl p-10 rounded-3xl border border-white/10 flex flex-col md:flex-row gap-8 items-center shadow-2xl relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-orange-500/5" />
-
+                <div className="w-full bg-[#FFCC00] p-10 border-4 border-black flex flex-col md:flex-row gap-8 items-center shadow-[16px_16px_0_0_#000000] relative overflow-hidden rotate-[-1deg]">
+                    {/* JOIN COLUMN */}
                     <div className="flex-1 w-full space-y-4 relative z-10">
-                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest pl-1">Join Private Room</label>
+                        <label className="text-sm font-black text-black uppercase tracking-widest bg-white border-2 border-black px-2 shadow-[2px_2px_0_0_#000000]">Join Private Room</label>
                         <div className="flex gap-3">
                             <input
                                 type="text"
                                 maxLength={4}
                                 placeholder="XXXX"
-                                className="bg-zinc-900 border border-white/10 rounded-2xl px-4 py-4 w-full text-center text-2xl font-black font-mono tracking-widest text-white uppercase focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder:text-zinc-700"
+                                className="bg-white border-4 border-black px-4 py-4 w-full text-center text-3xl font-black font-mono tracking-widest text-black uppercase focus:outline-none focus:ring-0 shadow-[4px_4px_0_0_#000000]"
                                 value={roomCode}
                                 onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                             />
                             <button
                                 onClick={() => { if (roomCode.length === 4) setPhase('SELECT_CARD'); }}
-                                className="bg-white hover:bg-zinc-200 text-black font-black py-4 px-8 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl hover:scale-[1.02] active:scale-[0.98]"
+                                className="neo-button bg-white text-black font-black py-4 px-8 disabled:opacity-50"
                                 disabled={roomCode.length !== 4}
                             >
                                 JOIN
@@ -346,16 +347,16 @@ export default function BattleLobby() {
                         </div>
                     </div>
 
-                    <div className="text-zinc-600 font-bold px-4 relative z-10">OR</div>
+                    <div className="text-black font-black text-2xl px-4 relative z-10">OR</div>
 
                     <div className="flex-1 w-full space-y-4 relative z-10">
-                        <label className="text-xs font-bold text-transparent select-none uppercase tracking-widest block pl-1">Create Room</label>
+                        <label className="text-sm font-black text-black uppercase tracking-widest bg-white border-2 border-black px-2 shadow-[2px_2px_0_0_#000000] opacity-0 select-none">Create Room</label>
                         <button
                             onClick={() => {
                                 setRoomCode(Math.floor(1000 + Math.random() * 9000).toString());
                                 setPhase('SELECT_CARD');
                             }}
-                            className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-400 hover:to-rose-500 text-white font-black py-4 px-8 rounded-2xl transition-all shadow-[0_0_30px_-5px_rgba(249,115,22,0.4)] hover:shadow-[0_0_40px_-5px_rgba(249,115,22,0.6)] hover:scale-[1.02] active:scale-[0.98]"
+                            className="neo-button w-full bg-[#FF3366] text-white font-black py-4 px-8 text-xl tracking-widest"
                         >
                             CREATE ROOM
                         </button>
@@ -370,73 +371,76 @@ export default function BattleLobby() {
         return (
             <div className="max-w-6xl mx-auto px-4 py-12 relative z-10">
                 <div className="text-center mb-10">
-                    <div className="inline-block bg-white/10 backdrop-blur-md border border-white/10 text-white font-mono px-4 py-2 rounded-full text-sm mb-6 shadow-lg">
-                        Room Code: <span className="text-orange-400 font-bold text-lg">{roomCode}</span>
+                    <div className="inline-block bg-white border-4 border-black text-black font-mono px-6 py-3 text-lg font-black tracking-widest mb-8 shadow-[6px_6px_0_0_#000000] rotate-[-2deg]">
+                        Room Code: <span className="text-[#FF3366] ml-2 text-2xl">{roomCode}</span>
                     </div>
-                    <h2 className="text-4xl font-extrabold text-white mb-4">Choose Your Fighter</h2>
-                    <p className="text-zinc-400 text-lg">Select a MonadMon from <span className="text-white font-bold">your collection</span> to stake in the Escrow.</p>
+                    <h2 className="text-5xl font-black text-black mb-4 uppercase drop-shadow-[4px_4px_0_rgba(0,0,0,0.1)]">Choose Your Fighter</h2>
+                    <p className="text-black font-bold text-lg border-b-4 border-black pb-4 inline-block">Select a MonadMon from your collection to stake in the Escrow.</p>
                 </div>
 
                 {loadingCards ? (
                     <div className="flex flex-col items-center justify-center py-20">
-                        <Loader2 className="animate-spin w-10 h-10 text-orange-400 mb-4" />
-                        <p className="text-zinc-400">Loading your collection...</p>
+                        <Loader2 className="animate-spin w-12 h-12 text-black mb-4" />
+                        <p className="text-black font-black uppercase tracking-widest">Loading your collection...</p>
                     </div>
                 ) : ownedCards.length === 0 ? (
-                    <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-12 text-center max-w-2xl mx-auto">
-                        <AlertTriangle className="w-16 h-16 text-amber-400 mx-auto mb-6 opacity-70" />
-                        <h3 className="text-2xl font-bold text-white mb-4">No Cards Available</h3>
-                        <p className="text-zinc-400 mb-8 max-w-md mx-auto">
+                    <div className="bg-white border-4 border-black shadow-[8px_8px_0_0_#000000] p-12 text-center max-w-2xl mx-auto rotate-[1deg]">
+                        <AlertTriangle className="w-16 h-16 text-black mx-auto mb-6" />
+                        <h3 className="text-3xl font-black text-black mb-4 uppercase">No Cards Available</h3>
+                        <p className="text-black font-bold mb-8 max-w-md mx-auto">
                             You need to own at least one MonadMon to enter the arena. Visit the Shop to buy or claim cards first!
                         </p>
                         <div className="flex gap-4 justify-center">
-                            <Link href="/shop" className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(59,130,246,0.5)]">
+                            <Link href="/shop" className="neo-button px-8 py-4 bg-[#33CCFF] text-black uppercase tracking-widest text-lg">
                                 Go to Shop
                             </Link>
-                            <button onClick={() => setPhase('JOIN')} className="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-all border border-white/10">
+                            <button onClick={() => setPhase('JOIN')} className="neo-button px-8 py-4 bg-white text-black uppercase tracking-widest text-lg">
                                 Back
                             </button>
                         </div>
                     </div>
                 ) : (
                     <>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 place-items-center mb-12">
                             {ownedCards.map((owned) => {
                                 const card = owned.card;
                                 const tierConf = getTierConfig(card.tier);
                                 const isSelected = selectedOwnedCard?.id === owned.id;
 
+                                let bgGradient = 'bg-gray-200';
+                                if (card.type.includes('Fire')) bgGradient = 'bg-[#FF3366]';
+                                else if (card.type.includes('Water')) bgGradient = 'bg-[#33CCFF]';
+                                else if (card.type.includes('Grass')) bgGradient = 'bg-[#34c759]';
+                                else if (card.type.includes('Electric')) bgGradient = 'bg-[#FFCC00]';
+
                                 return (
                                     <div
                                         key={owned.id}
                                         onClick={() => setSelectedOwnedCard(owned)}
-                                        className={`cursor-pointer rounded-3xl overflow-hidden transition-all duration-300
+                                        className={`cursor-pointer w-full max-w-[280px] bg-white border-4 border-black transition-all duration-300
                                             ${isSelected
-                                                ? 'ring-4 ring-orange-500 scale-105 shadow-[0_0_30px_rgba(249,115,22,0.3)]'
-                                                : `border ${TIER_BORDER_GLOW[card.tier]} opacity-80 hover:opacity-100 hover:scale-[1.02]`
+                                                ? 'shadow-[8px_8px_0_0_#FF3366] -translate-y-2 ring-4 ring-black'
+                                                : 'shadow-[4px_4px_0_0_#000000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000000]'
                                             }`}
                                     >
                                         {/* Card Image */}
-                                        <div className={`h-48 bg-gradient-to-br ${card.color} flex items-center justify-center relative`}>
-                                            <img src={card.image} className="h-full object-contain drop-shadow-2xl" />
+                                        <div className={`h-40 ${bgGradient} flex items-center justify-center relative border-b-4 border-black`}>
+                                            <img src={card.image} className="h-full object-contain drop-shadow-[4px_4px_0_rgba(0,0,0,1)] p-2" />
                                             {/* Tier Badge */}
-                                            <div className={`absolute top-3 right-3 text-xs px-3 py-1 rounded-full font-bold uppercase tracking-widest backdrop-blur-md border ${TIER_COLORS[card.tier]}`}>
+                                            <div className={`absolute top-2 right-2 text-xs px-2 py-1 font-black uppercase tracking-widest border-2 border-black bg-white text-black shadow-[2px_2px_0_0_#000000]`}>
                                                 {card.tier}
                                             </div>
                                         </div>
 
                                         {/* Card Info */}
-                                        <div className="p-4 bg-zinc-900">
+                                        <div className="p-4 bg-white">
                                             <div className="flex justify-between items-center mb-2">
-                                                <h4 className={`font-bold text-lg ${card.textColor}`}>{card.name}</h4>
-                                                <span className="text-xs text-zinc-500 font-mono">{tierConf.badge}</span>
+                                                <h4 className={`font-black text-black uppercase tracking-wider text-xl`}>{card.name}</h4>
+                                                <span className="text-xs text-black border-2 border-black px-1 font-mono font-bold bg-gray-100">{tierConf.badge}</span>
                                             </div>
-                                            <div className="flex justify-between text-xs text-zinc-500">
+                                            <div className="flex justify-between text-sm text-black font-bold uppercase tracking-widest mb-2 border-2 border-dashed border-gray-300 p-1">
                                                 <span>HP: {card.maxHp}</span>
-                                                <span>Value: {card.value} pts</span>
-                                            </div>
-                                            <div className="text-xs text-zinc-600 mt-1 capitalize">
-                                                via {owned.acquired_via.replace('_', ' ')}
+                                                <span className="bg-[#FFCC00] px-1 border border-black shadow-[1px_1px_0_0_#000000]">Val: {card.value}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -447,7 +451,7 @@ export default function BattleLobby() {
                             <button
                                 onClick={confirmCardSelection}
                                 disabled={!selectedOwnedCard}
-                                className="bg-white text-black font-black py-4 px-12 rounded-full disabled:opacity-50 hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all text-lg"
+                                className="neo-button bg-[#34c759] text-black font-black py-6 px-16 disabled:opacity-50 text-2xl uppercase tracking-widest"
                             >
                                 STAKE & ENTER
                             </button>
@@ -461,98 +465,127 @@ export default function BattleLobby() {
     // ─── PHASE: BATTLE ───
     if (phase === 'WAITING' || phase === 'BATTLE') {
         const getBattleStatus = () => {
-            if (phase === 'WAITING') return { text: 'Waiting For Player 2...', color: 'text-zinc-400' };
-            if (resolving) return { text: 'RESOLVING ROUND...', color: 'text-yellow-400' };
-            if (myMoveSubmitted) return { text: 'WAITING FOR OPPONENT...', color: 'text-amber-400' };
-            return { text: 'PICK YOUR MOVE', color: 'text-emerald-400' };
+            if (phase === 'WAITING') return { text: 'Waiting For Player 2...', color: 'bg-white text-black' };
+            if (resolving) return { text: 'RESOLVING ROUND...', color: 'bg-[#FFCC00] text-black' };
+            if (myMoveSubmitted) return { text: 'WAITING FOR OPPONENT...', color: 'bg-[#33CCFF] text-black' };
+            return { text: 'PICK YOUR MOVE', color: 'bg-[#34c759] text-black' };
         };
         const status = getBattleStatus();
 
         return (
             <div className="max-w-7xl mx-auto px-4 py-8 relative">
                 <div className="text-center mb-8">
-                    <div className="inline-block bg-white/10 backdrop-blur-md border border-white/10 text-white font-mono px-4 py-2 rounded-full text-sm mb-4 shadow-lg">
-                        Room Code: <span className="text-orange-400 font-bold text-lg">{roomCode}</span>
-                    </div>
-                    <h2 className={`text-4xl font-black ${status.color} transition-colors`}>
-                        {(phase === 'WAITING' || myMoveSubmitted || resolving) && <Loader2 className="animate-spin inline mr-2" />}{status.text}
+                    <div className="inline-block bg-white border-4 border-black text-black font-mono px-4 py-2 text-sm font-bold tracking-widest mb-4 shadow-[4px_4px_0_0_#000000]">
+                        Room Code: <span className="text-[#FF3366] text-lg font-black ml-2">{roomCode}</span>
+                    </div><br />
+                    <h2 className={`text-4xl font-black transition-colors inline-block border-4 border-black px-8 py-4 shadow-[8px_8px_0_0_#000000] ${status.color}`}>
+                        {(phase === 'WAITING' || myMoveSubmitted || resolving) && <Loader2 className="animate-spin inline mr-4" />}{status.text}
                     </h2>
                     {phase === 'BATTLE' && (
-                        <div className="flex justify-center gap-6 mt-4">
-                            <span className={`text-sm font-bold px-4 py-1 rounded-full ${myMoveSubmitted ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                        <div className="flex justify-center gap-6 mt-8 font-black uppercase text-sm tracking-widest">
+                            <span className={`px-4 py-2 border-2 border-black shadow-[2px_2px_0_0_#000000] ${myMoveSubmitted ? 'bg-[#34c759] text-black' : 'bg-white text-black'}`}>
                                 You: {myMoveSubmitted ? '✅ Locked' : '⏳ Choosing'}
                             </span>
-                            <span className={`text-sm font-bold px-4 py-1 rounded-full ${opponentMoveSubmitted ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                            <span className={`px-4 py-2 border-2 border-black shadow-[2px_2px_0_0_#000000] ${opponentMoveSubmitted ? 'bg-[#34c759] text-black' : 'bg-white text-black'}`}>
                                 Opponent: {opponentMoveSubmitted ? '✅ Locked' : '⏳ Choosing'}
                             </span>
                         </div>
                     )}
                 </div>
 
-                <div className="flex flex-col md:flex-row w-full justify-center items-start gap-8 md:gap-24 relative z-10 transition-all">
+                <div className="flex flex-col md:flex-row w-full justify-center items-start gap-8 md:gap-24 relative z-10 transition-all mt-12">
                     {/* MY CARD */}
-                    <div className="flex flex-col items-center gap-4 transition-all">
-                        <span className="text-xl font-bold bg-white/10 px-6 py-2 rounded-full text-white">You ({myHp} HP)</span>
-                        <div className={`w-72 bg-zinc-900 border-2 border-orange-500 rounded-3xl overflow-hidden shadow-[0_0_30px_rgba(249,115,22,0.3)]`}>
+                    <div className="flex flex-col items-center gap-4 transition-all w-full max-w-[320px]">
+                        <span className="text-2xl font-black bg-white border-4 border-black shadow-[4px_4px_0_0_#000000] px-6 py-2 text-black uppercase tracking-widest">You ({myHp} HP)</span>
+                        <div className="w-full bg-white border-4 border-black rounded-none overflow-hidden shadow-[12px_12px_0_0_#000000]">
                             <div className="relative">
-                                <img src={myCard!.image} className={`w-full h-48 bg-gradient-to-br ${myCard!.color} object-contain p-4`} />
-                                <div className={`absolute top-2 right-2 text-xs px-2 py-1 rounded-full font-bold uppercase tracking-widest backdrop-blur-md border ${TIER_COLORS[myCard!.tier]}`}>
+                                {myCard && (() => {
+                                    let bgGradient = 'bg-gray-200';
+                                    if (myCard.type.includes('Fire')) bgGradient = 'bg-[#FF3366]';
+                                    else if (myCard.type.includes('Water')) bgGradient = 'bg-[#33CCFF]';
+                                    else if (myCard.type.includes('Grass')) bgGradient = 'bg-[#34c759]';
+                                    else if (myCard.type.includes('Electric')) bgGradient = 'bg-[#FFCC00]';
+
+                                    return (
+                                        <div className={`w-full h-48 ${bgGradient} border-b-4 border-black flex items-center justify-center p-4`}>
+                                            <img src={myCard.image} className="h-full object-contain drop-shadow-[4px_4px_0_rgba(0,0,0,1)]" />
+                                        </div>
+                                    )
+                                })()}
+
+                                <div className={`absolute top-2 right-2 text-xs px-2 py-1 font-black uppercase tracking-widest border-2 border-black bg-white text-black shadow-[2px_2px_0_0_#000000]`}>
                                     {myCard!.tier}
                                 </div>
                             </div>
-                            <div className="p-4 bg-zinc-950 space-y-2 relative overflow-hidden">
-                                <div className="w-full bg-red-900 rounded-full h-2 mb-2"><div className="bg-emerald-500 h-2 rounded-full transition-all" style={{ width: `${Math.max(0, (myHp / myCard!.maxHp) * 100)}%` }} /></div>
-                                {myShield > 0 && <span className="text-xs text-blue-400 font-bold block mb-2 text-center bg-blue-500/10 py-1 rounded">🛡️ Shield: {myShield}</span>}
+                            <div className="p-4 bg-white space-y-2 relative overflow-hidden">
+                                <div className="w-full bg-white border-2 border-black h-4 mb-2"><div className="bg-[#FF3366] h-full border-r-2 border-black transition-all" style={{ width: `${Math.max(0, (myHp / myCard!.maxHp) * 100)}%` }} /></div>
+                                {myShield > 0 && <span className="text-sm text-black font-black uppercase tracking-widest block mb-2 text-center bg-[#33CCFF] border-2 border-black shadow-[2px_2px_0_0_#000000] py-1">🛡️ Shield: {myShield}</span>}
+
                                 {phase === 'BATTLE' && !myMoveSubmitted && myCard!.moves.map((m, i) => (
-                                    <button key={i} onClick={() => submitMove(m)} className="w-full text-sm bg-black border border-white/5 p-3 rounded-lg text-white font-bold text-left hover:bg-zinc-800 flex justify-between uppercase tracking-wider hover:border-orange-500/50 transition-all">
+                                    <button key={i} onClick={() => submitMove(m)} className="w-full text-lg bg-white border-2 border-black shadow-[2px_2px_0_0_#000000] p-3 text-black font-black text-left hover:bg-[#FFCC00] hover:-translate-y-1 hover:shadow-[4px_4px_0_0_#000000] active:translate-y-0 active:shadow-none flex justify-between uppercase tracking-wider transition-all mb-2">
                                         <span className="flex items-center gap-2">
-                                            {m.type === 'attack' ? <Swords className="w-4 h-4" /> : m.type === 'power' ? <Zap className="text-orange-400 w-4 h-4" /> : <Shield className="text-blue-400 w-4 h-4" />}
+                                            {m.type === 'attack' ? <Swords className="w-5 h-5 text-red-500" /> : m.type === 'power' ? <Zap className="text-yellow-500 w-5 h-5" /> : <Shield className="text-blue-500 w-5 h-5" />}
                                             {m.name}
                                         </span>
-                                        <span className="text-zinc-500 font-mono">{m.value}</span>
+                                        <span className="text-black bg-white px-2 border-2 border-black font-mono shadow-[2px_2px_0_0_#000000]">{m.value}</span>
                                     </button>
                                 ))}
                                 {phase === 'BATTLE' && myMoveSubmitted && (
-                                    <div className="text-center py-6 text-emerald-400 font-bold text-lg">✅ Move Locked In!</div>
+                                    <div className="text-center py-6 text-black bg-[#34c759] border-4 border-black font-black text-xl shadow-[4px_4px_0_0_#000000] uppercase tracking-widest rotate-[-2deg] mt-4">✅ Move Locked In!</div>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    <div className="font-black text-5xl text-white/50 self-center hidden md:block">VS</div>
+                    <div className="font-black text-7xl text-black self-center hidden md:block drop-shadow-[4px_4px_0_#ffffff]">VS</div>
 
                     {/* OPPONENT CARD */}
-                    <div className="flex flex-col items-center gap-4 transition-all">
-                        <span className="text-xl font-bold bg-white/10 px-6 py-2 rounded-full text-white">Opponent {opponentCard && `(${opponentHp} HP)`}</span>
-                        <div className="w-72 bg-zinc-900 border-2 border-white/10 rounded-3xl overflow-hidden">
+                    <div className="flex flex-col items-center gap-4 transition-all w-full max-w-[320px]">
+                        <span className="text-2xl font-black bg-white border-4 border-black shadow-[4px_4px_0_0_#000000] px-6 py-2 text-black uppercase tracking-widest">Enemy {opponentCard && `(${opponentHp} HP)`}</span>
+                        <div className="w-full bg-white border-4 border-black rounded-none overflow-hidden shadow-[12px_12px_0_0_#000000]">
                             {opponentCard ? (
                                 <>
                                     <div className="relative">
-                                        <img src={opponentCard.image} className={`w-full h-48 bg-gradient-to-br ${opponentCard.color} object-contain p-4`} />
-                                        <div className={`absolute top-2 right-2 text-xs px-2 py-1 rounded-full font-bold uppercase tracking-widest backdrop-blur-md border ${TIER_COLORS[opponentCard.tier]}`}>
+                                        {(() => {
+                                            let bgGradient = 'bg-gray-200';
+                                            if (opponentCard.type.includes('Fire')) bgGradient = 'bg-[#FF3366]';
+                                            else if (opponentCard.type.includes('Water')) bgGradient = 'bg-[#33CCFF]';
+                                            else if (opponentCard.type.includes('Grass')) bgGradient = 'bg-[#34c759]';
+                                            else if (opponentCard.type.includes('Electric')) bgGradient = 'bg-[#FFCC00]';
+
+                                            return (
+                                                <div className={`w-full h-48 ${bgGradient} border-b-4 border-black flex items-center justify-center p-4`}>
+                                                    <img src={opponentCard.image} className="h-full object-contain drop-shadow-[4px_4px_0_rgba(0,0,0,1)]" />
+                                                </div>
+                                            )
+                                        })()}
+
+                                        <div className={`absolute top-2 right-2 text-xs px-2 py-1 font-black uppercase tracking-widest border-2 border-black bg-white text-black shadow-[2px_2px_0_0_#000000]`}>
                                             {opponentCard.tier}
                                         </div>
                                     </div>
-                                    <div className="p-4 bg-zinc-950 space-y-2">
-                                        <div className="w-full bg-red-900 rounded-full h-2 mb-2"><div className="bg-emerald-500 h-2 rounded-full transition-all" style={{ width: `${Math.max(0, (opponentHp / opponentCard.maxHp) * 100)}%` }} /></div>
-                                        {opponentShield > 0 && <span className="text-xs text-blue-400 font-bold block mb-2 text-center bg-blue-500/10 py-1 rounded">🛡️ Shield: {opponentShield}</span>}
-                                        <div className={`text-center font-bold mt-6 mb-4 ${opponentMoveSubmitted ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                                            {opponentMoveSubmitted ? '✅ Move Locked In!' : '⏳ Choosing move...'}
+                                    <div className="p-4 bg-white space-y-2">
+                                        <div className="w-full bg-white border-2 border-black h-4 mb-2"><div className="bg-[#FF3366] h-full border-r-2 border-black transition-all" style={{ width: `${Math.max(0, (opponentHp / opponentCard.maxHp) * 100)}%` }} /></div>
+                                        {opponentShield > 0 && <span className="text-sm text-black font-black uppercase tracking-widest block mb-2 text-center bg-[#33CCFF] border-2 border-black shadow-[2px_2px_0_0_#000000] py-1">🛡️ Shield: {opponentShield}</span>}
+                                        <div className={`text-center font-black mt-6 mb-4 text-xl border-4 border-black py-4 shadow-[4px_4px_0_0_#000000] uppercase tracking-wider ${opponentMoveSubmitted ? 'bg-[#34c759] text-black rotate-[2deg]' : 'bg-white text-black'}`}>
+                                            {opponentMoveSubmitted ? '✅ Locked In!' : '⏳ Choosing...'}
                                         </div>
                                     </div>
                                 </>
                             ) : (
-                                <div className="w-full h-[320px] flex items-center justify-center text-6xl animate-pulse bg-zinc-950">❓</div>
+                                <div className="w-full h-[320px] flex items-center justify-center text-8xl bg-gray-200 border-b-4 border-black font-black text-black">?</div>
                             )}
                         </div>
                     </div>
                 </div>
 
                 {/* Battle Log */}
-                <div className="mt-12 max-w-2xl mx-auto w-full bg-black/60 border border-white/10 rounded-2xl p-4 h-40 overflow-y-auto font-mono text-sm space-y-2">
-                    <div className="sticky top-0 bg-black/80 text-xs font-bold text-zinc-500 mb-2 pb-2 border-b border-white/5 z-10">BATTLE LOG</div>
-                    {battleLog.length === 0 && <p className="text-zinc-600 italic">Waiting to begin...</p>}
-                    {battleLog.map((log, i) => <div key={i} className={`animate-fade-in ${log.includes('P1') ? 'text-blue-400' : ''} ${log.includes('P2') ? 'text-orange-400' : ''} ${log.includes('ROUND') ? 'text-zinc-600 font-bold' : ''} ${log.includes('Match starts') || log.includes('joined') ? 'text-emerald-400 font-bold' : ''}`}>&gt; {log}</div>)}
+                <div className="mt-20 max-w-4xl mx-auto w-full bg-white border-4 border-black p-6 h-64 overflow-y-auto font-mono text-sm space-y-2 shadow-[8px_8px_0_0_#000000]">
+                    <div className="sticky top-0 bg-white text-black text-lg font-black uppercase tracking-widest mb-4 pb-2 border-b-4 border-black z-10 flex items-center gap-2">
+                        <Swords className="w-6 h-6" /> BATTLE LOG
+                    </div>
+                    {battleLog.length === 0 && <p className="text-black font-bold italic">Waiting to begin...</p>}
+                    {battleLog.map((log, i) => <div key={i} className={`animate-fade-in font-bold text-base border-b-2 border-gray-100 py-1 ${log.includes('P1') ? 'text-blue-600' : ''} ${log.includes('P2') ? 'text-red-600' : ''} ${log.includes('ROUND') ? 'bg-black text-white p-2 text-center uppercase tracking-widest mt-4 mb-2 border-2 border-black inline-block' : ''} ${(log.includes('Match starts') || log.includes('joined')) ? 'bg-[#34c759] text-black p-2 border-2 border-black inline-block mt-2' : ''}`}>&gt; {log}</div>)}
                     <div ref={logEndRef} />
                 </div>
             </div>
@@ -581,42 +614,48 @@ export default function BattleLobby() {
 
         return (
             <div className="max-w-4xl mx-auto px-4 py-20 flex flex-col items-center">
-                <div className="text-8xl mb-6">{winner === 'me' ? '🏆' : '💀'}</div>
-                <h1 className="text-6xl font-black mb-6 text-center text-white">{winner === 'me' ? 'VICTORY!' : 'DEFEATED'}</h1>
+                <div className="text-8xl mb-6 drop-shadow-[4px_4px_0_rgba(0,0,0,1)]">
+                    {winner === 'draw' ? '🤝' : winner === 'me' ? '🏆' : '💀'}
+                </div>
+                <h1 className="text-7xl md:text-8xl font-black mb-6 text-center text-black uppercase tracking-tighter drop-shadow-[4px_4px_0_rgba(0,0,0,0.1)]">
+                    {winner === 'draw' ? 'DRAW!' : winner === 'me' ? 'VICTORY!' : 'DEFEATED'}
+                </h1>
 
                 {/* Card transfer status */}
                 {transferring && (
-                    <div className="flex items-center gap-3 text-amber-400 mb-6">
+                    <div className="flex items-center gap-3 text-black mb-6 bg-white border-2 border-black px-4 py-2 shadow-[2px_2px_0_0_#000000]">
                         <Loader2 className="animate-spin w-5 h-5" />
-                        <span className="font-bold">Transferring cards...</span>
+                        <span className="font-bold uppercase tracking-widest">Transferring cards...</span>
                     </div>
                 )}
 
                 {transferDone && winner === 'me' && wonCardName && (
-                    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 mb-8 text-center max-w-md">
-                        <p className="text-emerald-400 font-bold text-lg mb-1">🎉 Card Acquired!</p>
-                        <p className="text-zinc-300">You won <span className="text-white font-bold">{wonCardName}</span> from your opponent. It has been added to your collection!</p>
+                    <div className="bg-[#34c759] border-4 border-black p-6 mb-8 text-center max-w-md shadow-[8px_8px_0_0_#000000] rotate-[-2deg]">
+                        <p className="text-black font-black text-2xl uppercase mb-2">🎉 Card Acquired!</p>
+                        <p className="text-black font-bold">You won <span className="text-white font-black px-1 bg-black">{wonCardName}</span> from your opponent. It has been added to your collection!</p>
                     </div>
                 )}
 
                 {transferDone && winner === 'opponent' && (
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-6 mb-8 text-center max-w-md">
-                        <p className="text-red-400 font-bold text-lg mb-1">Card Lost</p>
-                        <p className="text-zinc-300">Your <span className="text-white font-bold">{myCard?.name}</span> has been transferred to the winner.</p>
+                    <div className="bg-[#FF3366] border-4 border-black p-6 mb-8 text-center max-w-md shadow-[8px_8px_0_0_#000000] rotate-[2deg]">
+                        <p className="text-white font-black text-2xl uppercase mb-2">Card Lost</p>
+                        <p className="text-white font-bold">Your <span className="text-black bg-white font-black px-1">{myCard?.name}</span> has been transferred to the winner.</p>
                     </div>
                 )}
 
-                <p className="text-zinc-400 text-center mb-12 text-xl max-w-lg">
-                    {winner === 'me'
-                        ? 'The opponent\'s card has been transferred to your collection from the Escrow.'
-                        : 'Your staked card was lost to the opponent.'}
+                <p className="text-black font-black text-center mb-12 text-2xl max-w-lg bg-white border-4 border-black p-4 shadow-[8px_8px_0_0_#000000] rotate-[-1deg] uppercase">
+                    {winner === 'draw'
+                        ? 'It was a tie! No cards were transferred.'
+                        : winner === 'me'
+                            ? 'The opponent\'s card is now yours.'
+                            : 'Your staked card was lost to the opponent.'}
                 </p>
 
-                <div className="flex gap-4">
-                    <button onClick={handlePlayAgain} className="bg-white text-black font-black py-4 px-12 rounded-full text-xl shadow-xl hover:scale-105 transition-transform">
+                <div className="flex flex-col sm:flex-row gap-6">
+                    <button onClick={handlePlayAgain} className="neo-button bg-white text-black font-black py-6 px-12 text-2xl uppercase tracking-widest">
                         PLAY AGAIN
                     </button>
-                    <Link href="/collection" className="bg-zinc-800 text-white font-bold py-4 px-8 rounded-full text-xl border border-white/10 hover:bg-zinc-700 transition-all flex items-center">
+                    <Link href="/collection" className="neo-button bg-[#33CCFF] text-black font-black py-6 px-12 text-2xl uppercase tracking-widest text-center flex items-center justify-center">
                         View Collection
                     </Link>
                 </div>

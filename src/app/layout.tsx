@@ -4,6 +4,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 import './globals.css';
 import { Providers } from './providers';
 import { Navbar } from '@/components/Navbar';
+import { SoundProvider } from '@/components/SoundProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -18,8 +19,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} bg-zinc-950 text-white min-h-screen flex flex-col`}>
+    <html lang="en">
+      <body className={`${inter.className} min-h-screen flex flex-col`}>
+        <SoundProvider />
         <Providers>
           <Navbar />
           <main className="flex-grow pt-16">
