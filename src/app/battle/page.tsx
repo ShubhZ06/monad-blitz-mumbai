@@ -43,8 +43,31 @@ export default function BattleLobby() {
     const isResolvingRef = useRef(false);
     const myMoveSubmittedRef = useRef(false);
     const opponentCardRef = useRef<CardDefinition | null>(null);
+    const battleAudioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [battleLog]);
+
+    // Battle music - play when entering battle, stop on result or unmount
+    useEffect(() => {
+        if (phase === 'BATTLE') {
+            if (!battleAudioRef.current) {
+                battleAudioRef.current = new Audio('/sound/battle sound.mp3');
+                battleAudioRef.current.loop = true;
+                battleAudioRef.current.volume = 0.5;
+            }
+            battleAudioRef.current.play().catch(() => {});
+        } else if (phase === 'RESULT' && battleAudioRef.current) {
+            battleAudioRef.current.pause();
+            battleAudioRef.current.currentTime = 0;
+        }
+
+        return () => {
+            if (battleAudioRef.current) {
+                battleAudioRef.current.pause();
+                battleAudioRef.current.currentTime = 0;
+            }
+        };
+    }, [phase]);
 
     // Load player's owned cards when entering card selection
     useEffect(() => {
