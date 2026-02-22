@@ -15,8 +15,9 @@ export const monadTestnet: Chain = {
 
 export const config = getDefaultConfig({
     appName: 'MonadMons TCG',
-    projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo_project_id',
+    projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c7400d41e747444738fb9ca105650117',
     chains: [monadTestnet],
+    ssr: true,
     transports: {
         [monadTestnet.id]: http(),
     },
