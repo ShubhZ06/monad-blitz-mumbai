@@ -1,5 +1,5 @@
 -- ============================================================
--- MonadMons TCG – Full Supabase Schema
+-- PokeBattle – Full Supabase Schema
 -- ============================================================
 
 -- 1. Rooms table (multiplayer battle sessions)

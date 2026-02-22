@@ -53,7 +53,7 @@ export default function Collection() {
                     <div className="text-6xl mb-6 grayscale drop-shadow-[4px_4px_0_rgba(0,0,0,1)]">🎒</div>
                     <h2 className="text-3xl font-black text-black mb-4 uppercase">Your Bag is Empty</h2>
                     <p className="text-black font-bold mb-8 max-w-md mx-auto">
-                        You don't own any MonadMons yet! Visit the Poké Mart to claim your free starter, grab daily drops, or mint Premium cards.
+                        You don't own any cards yet! Visit the Poké Mart to claim your free starter, grab daily drops, or mint Premium cards.
                     </p>
                     <Link href="/shop" className="neo-button inline-block px-8 py-4 bg-[#33CCFF] text-black uppercase tracking-widest text-lg">
                         Go to Poké Mart

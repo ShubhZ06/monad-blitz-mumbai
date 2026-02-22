@@ -14,7 +14,7 @@ export const monadTestnet: Chain = {
 } as const;
 
 export const config = getDefaultConfig({
-    appName: 'MonadMons TCG',
+    appName: 'PokeBattle',
     projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c7400d41e747444738fb9ca105650117',
     chains: [monadTestnet],
     ssr: true,

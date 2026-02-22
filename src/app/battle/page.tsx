@@ -17,10 +17,10 @@ export default function BattleLobby() {
     const [isPlayer1, setIsPlayer1] = useState<boolean>(false);
     const isPlayer1Ref = useRef(false);
 
-    // Owned cards for selection
     const [ownedCards, setOwnedCards] = useState<(OwnedCard & { card: CardDefinition })[]>([]);
     const [loadingCards, setLoadingCards] = useState(false);
     const [selectedOwnedCard, setSelectedOwnedCard] = useState<(OwnedCard & { card: CardDefinition }) | null>(null);
+    const [joinError, setJoinError] = useState<string | null>(null);
 
     // Battle state
     const [myCard, setMyCard] = useState<CardDefinition | null>(null);
@@ -187,48 +187,49 @@ export default function BattleLobby() {
         setMyHp(card.maxHp);
         setMyShield(0);
 
-        const { data: room } = await supabase.from('rooms').select('*').eq('id', roomCode).single();
+        const amP1 = isPlayer1Ref.current;
 
-        if (!room) {
-            // I am Player 1
-            isPlayer1Ref.current = true;
-            setIsPlayer1(true);
+        if (amP1) {
+            // Player 1: Update existing room with card selection
+            const initLog = [`${card.name} (${card.tier}) enters the arena. Waiting for Player 2...`];
+            setBattleLog(initLog);
 
-            const initLog = [`Room created. ${card.name} (${card.tier}) enters the arena. Waiting for Player 2...`];
-            setBattleLog(initLog); // Show immediately in UI
-
-            const { error } = await supabase.from('rooms').insert({
-                id: roomCode,
-                player1_address: address,
+            const { error } = await supabase.from('rooms').update({
                 player1_card: card,
                 player1_hp: card.maxHp,
                 player1_shield: 0,
                 status: 'waiting',
                 action_log: initLog
-            });
+            }).eq('id', roomCode);
 
             if (error) {
-                console.error('Failed to create room:', error);
-                setBattleLog([`Error creating room: ${error.message}`]);
+                console.error('Failed to update room:', error);
+                setBattleLog([`Error: ${error.message}`]);
                 return;
             }
 
-            // Phase change AFTER successful insert so subscription sees the room
             setPhase('WAITING');
         } else {
-            // I am Player 2
-            isPlayer1Ref.current = false;
-            setIsPlayer1(false);
+            // Player 2: Join existing room
+            const { data: room } = await supabase.from('rooms').select('*').eq('id', roomCode).single();
+
+            if (!room) {
+                setBattleLog([`Error: Room not found.`]);
+                return;
+            }
+
+            if (!room.player1_card) {
+                setBattleLog([`Error: Player 1 hasn't selected a card yet.`]);
+                return;
+            }
 
             const logs = [...(room.action_log || []), `Player 2 joined with ${card.name} (${card.tier})! Match starts.`];
-            setBattleLog(logs); // Show immediately in UI
+            setBattleLog(logs);
 
             // Set opponent card from existing room data
-            if (room.player1_card) {
-                setOpponentCard(room.player1_card);
-                opponentCardRef.current = room.player1_card;
-                setOpponentHp(room.player1_hp || 0);
-            }
+            setOpponentCard(room.player1_card);
+            opponentCardRef.current = room.player1_card;
+            setOpponentHp(room.player1_hp || 0);
 
             const { error } = await supabase.from('rooms').update({
                 player2_address: address,
@@ -335,16 +336,42 @@ export default function BattleLobby() {
                                 placeholder="XXXX"
                                 className="bg-white border-4 border-black px-4 py-4 w-full text-center text-3xl font-black font-mono tracking-widest text-black uppercase focus:outline-none focus:ring-0 shadow-[4px_4px_0_0_#000000]"
                                 value={roomCode}
-                                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                                onChange={(e) => { setRoomCode(e.target.value.toUpperCase()); setJoinError(null); }}
                             />
                             <button
-                                onClick={() => { if (roomCode.length === 4) setPhase('SELECT_CARD'); }}
+                                onClick={async () => {
+                                    if (roomCode.length !== 4) return;
+                                    setJoinError(null);
+                                    // Check if room exists before allowing join
+                                    const { data: room } = await supabase.from('rooms').select('id, status, player2_address, player1_card').eq('id', roomCode).single();
+                                    if (!room) {
+                                        setJoinError('Room not found. Ask Player 1 to create it first.');
+                                        return;
+                                    }
+                                    if (room.status === 'creating' || !room.player1_card) {
+                                        setJoinError('Player 1 is still selecting their card. Wait a moment.');
+                                        return;
+                                    }
+                                    if (room.player2_address) {
+                                        setJoinError('Room is full. Try a different code.');
+                                        return;
+                                    }
+                                    // Mark as Player 2
+                                    isPlayer1Ref.current = false;
+                                    setIsPlayer1(false);
+                                    setPhase('SELECT_CARD');
+                                }}
                                 className="neo-button bg-white text-black font-black py-4 px-8 disabled:opacity-50"
                                 disabled={roomCode.length !== 4}
                             >
                                 JOIN
                             </button>
                         </div>
+                        {joinError && (
+                            <div className="bg-red-100 border-2 border-red-500 text-red-600 font-bold text-sm p-2 mt-2">
+                                {joinError}
+                            </div>
+                        )}
                     </div>
 
                     <div className="text-black font-black text-2xl px-4 relative z-10">OR</div>
@@ -352,8 +379,19 @@ export default function BattleLobby() {
                     <div className="flex-1 w-full space-y-4 relative z-10">
                         <label className="text-sm font-black text-black uppercase tracking-widest bg-white border-2 border-black px-2 shadow-[2px_2px_0_0_#000000] opacity-0 select-none">Create Room</label>
                         <button
-                            onClick={() => {
-                                setRoomCode(Math.floor(1000 + Math.random() * 9000).toString());
+                            onClick={async () => {
+                                const newCode = Math.floor(1000 + Math.random() * 9000).toString();
+                                setRoomCode(newCode);
+                                // Mark as Player 1 and create the room immediately
+                                isPlayer1Ref.current = true;
+                                setIsPlayer1(true);
+                                // Create placeholder room in DB
+                                await supabase.from('rooms').insert({
+                                    id: newCode,
+                                    player1_address: address,
+                                    status: 'creating',
+                                    action_log: [`Room ${newCode} created. Waiting for Player 1 to select card...`]
+                                });
                                 setPhase('SELECT_CARD');
                             }}
                             className="neo-button w-full bg-[#FF3366] text-white font-black py-4 px-8 text-xl tracking-widest"
@@ -375,7 +413,7 @@ export default function BattleLobby() {
                         Room Code: <span className="text-[#FF3366] ml-2 text-2xl">{roomCode}</span>
                     </div>
                     <h2 className="text-5xl font-black text-black mb-4 uppercase drop-shadow-[4px_4px_0_rgba(0,0,0,0.1)]">Choose Your Fighter</h2>
-                    <p className="text-black font-bold text-lg border-b-4 border-black pb-4 inline-block">Select a MonadMon from your collection to stake in the Escrow.</p>
+                    <p className="text-black font-bold text-lg border-b-4 border-black pb-4 inline-block">Select a Pokémon from your collection to stake in the Escrow.</p>
                 </div>
 
                 {loadingCards ? (
@@ -388,7 +426,7 @@ export default function BattleLobby() {
                         <AlertTriangle className="w-16 h-16 text-black mx-auto mb-6" />
                         <h3 className="text-3xl font-black text-black mb-4 uppercase">No Cards Available</h3>
                         <p className="text-black font-bold mb-8 max-w-md mx-auto">
-                            You need to own at least one MonadMon to enter the arena. Visit the Shop to buy or claim cards first!
+                            You need to own at least one Pokémon to enter the arena. Visit the Shop to buy or claim cards first!
                         </p>
                         <div className="flex gap-4 justify-center">
                             <Link href="/shop" className="neo-button px-8 py-4 bg-[#33CCFF] text-black uppercase tracking-widest text-lg">

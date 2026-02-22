@@ -22,7 +22,7 @@ export function Navbar() {
                 <div className="flex items-center justify-between h-16">
                     <div className="flex items-center gap-8">
                         <Link href="/" className="text-2xl font-black text-black uppercase tracking-wider border-2 border-black bg-yellow-400 px-3 py-1 shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all">
-                            MonadMons
+                            PokeBattle
                         </Link>
 
                         {/* Only show these navigation links if the user is both connected and the component has mounted */}

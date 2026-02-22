@@ -1,4 +1,4 @@
-// ─── Card Catalog: Single source of truth for all MonadMons cards ───
+// ─── Card Catalog: Single source of truth for all PokeBattle cards ───
 // Tiers determine rarity, base stats, and trade value.
 // Cards are acquired via: Shop (MON), Daily Claims, or Battle Wins.
 

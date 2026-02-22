@@ -9,7 +9,7 @@ import { SoundProvider } from '@/components/SoundProvider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'MonadMons TCG',
+  title: 'PokeBattle',
   description: 'Top-Trumps Web3 Trading Card Game on Monad',
 };
 

@@ -36,7 +36,7 @@ export default function Home() {
         </div>
 
         <h1 className="text-5xl md:text-7xl font-black text-black leading-tight pb-4 uppercase tracking-tighter drop-shadow-[4px_4px_0_rgba(0,0,0,0.1)]">
-          Unleash the Power of MonadMons
+          Welcome to PokeBattle
         </h1>
 
         <p className="text-xl md:text-2xl text-black font-bold max-w-2xl mx-auto leading-relaxed border-b-4 border-black pb-8 inline-block">
@@ -71,7 +71,7 @@ export default function Home() {
 
           <div className="p-6 bg-[#34c759] border-4 border-black shadow-[4px_4px_0_0_#000000] rotate-[3deg] transition-transform hover:rotate-0">
             <h3 className="text-xl font-black text-black mb-2 uppercase">True Ownership</h3>
-            <p className="text-sm text-black font-bold">Every MonadMon is a 100% on-chain NFT.</p>
+            <p className="text-sm text-black font-bold">Every card is a 100% on-chain NFT.</p>
           </div>
 
           <div className="p-6 bg-[#FF3366] border-4 border-black shadow-[4px_4px_0_0_#000000] rotate-[-1deg] text-white transition-transform hover:rotate-0">

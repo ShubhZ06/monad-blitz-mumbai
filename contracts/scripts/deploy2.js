@@ -1,14 +1,14 @@
 const hre = require("hardhat");
 
 async function main() {
-    console.log("Deploying updated MonadMons contract...");
+    console.log("Deploying updated PokeBattle contract...");
 
-    const MonadMons = await hre.ethers.getContractFactory("MonadMons");
-    const monadMons = await MonadMons.deploy();
+    const PokeBattle = await hre.ethers.getContractFactory("PokeBattle");
+    const pokeBattle = await PokeBattle.deploy();
 
-    await monadMons.waitForDeployment();
+    await pokeBattle.waitForDeployment();
 
-    console.log(`Updated MonadMons deployed to: ${await monadMons.getAddress()}`);
+    console.log(`Updated PokeBattle deployed to: ${await pokeBattle.getAddress()}`);
 }
 
 main().catch((error) => {

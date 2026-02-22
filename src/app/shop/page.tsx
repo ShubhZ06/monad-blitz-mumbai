@@ -8,20 +8,27 @@ import { Loader2, Gift, ShoppingBag, Clock, CheckCircle, Star } from 'lucide-rea
 import { CARD_CATALOG, getShopCards, getDailyClaimableCards, TIER_COLORS, getTierConfig, CardDefinition } from '@/lib/cards';
 import { buyCard, claimDailyCard, giveStarterCard, canClaimDaily, getPlayerCards } from '@/lib/inventory';
 
-const MonadMonsABI = [
+const PokeBattleABI = [
     { "inputs": [{ "internalType": "uint8", "name": "_speciesId", "type": "uint8" }], "name": "mintStarter", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
     { "inputs": [{ "internalType": "uint8", "name": "_speciesId", "type": "uint8" }], "name": "claimDaily", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
     { "inputs": [{ "internalType": "uint8", "name": "_speciesId", "type": "uint8" }], "name": "buyCard", "outputs": [], "stateMutability": "payable", "type": "function" }
-];
+] as const;
 
-const MONAD_MONS_ADDRESS = '0xdcB7bD581BABF76ea8530E11b00E29988032Bea8'; // Updated to new deployment
+const POKE_BATTLE_ADDRESS = '0x356B7d7A8dBC2Aa628571cD659217e372dF98BDA'; // PokeBattle contract
+
+// Helper to convert card ID to speciesId (index in catalog)
+const getSpeciesId = (cardId: string): number => {
+    const index = CARD_CATALOG.findIndex(c => c.id === cardId);
+    return index >= 0 ? index : 0;
+};
 
 export default function Shop() {
     const { isConnected, address } = useAccount();
-    const { data: hash, writeContract, isPending, error: writeError } = useWriteContract();
+    const { data: hash, writeContract, isPending, error: writeError, reset: resetWrite } = useWriteContract();
     const { isLoading: isConfirming, isSuccess, error: receiptError } = useWaitForTransactionReceipt({ hash });
 
     const [buyingCard, setBuyingCard] = useState<string | null>(null);
+    const [pendingCardId, setPendingCardId] = useState<string | null>(null);
     const [buyResult, setBuyResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [claimingDaily, setClaimingDaily] = useState(false);
     const [dailyResult, setDailyResult] = useState<{ type: 'success' | 'error'; message: string; card?: CardDefinition } | null>(null);
@@ -47,19 +54,59 @@ export default function Shop() {
         });
     }, [address, buyResult, dailyResult, starterResult]);
 
+    // Handle transaction success - add card to Supabase after on-chain purchase
+    useEffect(() => {
+        const addCardToInventory = async () => {
+            if (isSuccess && pendingCardId && address) {
+                const result = await buyCard(address, pendingCardId);
+                const card = CARD_CATALOG.find(c => c.id === pendingCardId);
+                if (result.success && card) {
+                    setBuyResult({ type: 'success', message: `${card.name} (${card.tier}) has been added to your collection!` });
+                } else {
+                    setBuyResult({ type: 'error', message: 'Transaction succeeded but failed to record card.' });
+                }
+                setPendingCardId(null);
+                setBuyingCard(null);
+                resetWrite();
+            }
+        };
+        addCardToInventory();
+    }, [isSuccess, pendingCardId, address, resetWrite]);
+
+    // Handle transaction errors
+    useEffect(() => {
+        if (writeError && buyingCard) {
+            setBuyResult({ type: 'error', message: writeError.message || 'Transaction failed.' });
+            setBuyingCard(null);
+            setPendingCardId(null);
+        }
+        if (receiptError && buyingCard) {
+            setBuyResult({ type: 'error', message: receiptError.message || 'Transaction failed.' });
+            setBuyingCard(null);
+            setPendingCardId(null);
+        }
+    }, [writeError, receiptError, buyingCard]);
+
     const handleBuyFromShop = async (card: CardDefinition) => {
-        if (!address || buyingCard) return;
+        if (!address || buyingCard || isPending || isConfirming) return;
         setBuyingCard(card.id);
+        setPendingCardId(card.id);
         setBuyResult(null);
 
-        const result = await buyCard(address, card.id);
-
-        if (result.success) {
-            setBuyResult({ type: 'success', message: `${card.name} (${card.tier}) has been added to your collection!` });
-        } else {
-            setBuyResult({ type: 'error', message: result.error || 'Failed to purchase card.' });
+        try {
+            // Call the smart contract to buy the card (requires MON payment)
+            writeContract({
+                address: POKE_BATTLE_ADDRESS as `0x${string}`,
+                abi: PokeBattleABI,
+                functionName: 'buyCard',
+                args: [getSpeciesId(card.id)],
+                value: parseEther(card.shopPrice.toString()),
+            });
+        } catch (error: any) {
+            setBuyResult({ type: 'error', message: error?.message || 'Failed to initiate transaction.' });
+            setBuyingCard(null);
+            setPendingCardId(null);
         }
-        setBuyingCard(null);
     };
 
     const handleClaimDaily = async () => {
@@ -228,11 +275,18 @@ export default function Shop() {
                                 </div>
 
                                 <button
-                                    disabled={buyingCard === card.id}
+                                    disabled={buyingCard === card.id || (isPending && pendingCardId === card.id) || (isConfirming && pendingCardId === card.id)}
                                     onClick={() => handleBuyFromShop(card)}
                                     className="neo-button w-full py-4 bg-white text-black text-xl disabled:opacity-50 uppercase tracking-widest flex items-center justify-center"
                                 >
-                                    {buyingCard === card.id ? <Loader2 className="animate-spin inline w-6 h-6" /> : `BUY FOR ${card.shopPrice} MON`}
+                                    {(buyingCard === card.id || pendingCardId === card.id) ? (
+                                        <>
+                                            <Loader2 className="animate-spin inline w-6 h-6 mr-2" />
+                                            {isConfirming ? 'CONFIRMING...' : 'APPROVE IN WALLET'}
+                                        </>
+                                    ) : (
+                                        `BUY FOR ${card.shopPrice} MON`
+                                    )}
                                 </button>
                             </div>
                         );
