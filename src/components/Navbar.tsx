@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import { useEffect, useState } from 'react';
+import { useProfile } from './ProfileProvider';
 
 export function Navbar() {
     const { isConnected } = useAccount();
+    const { profile, setShowProfilePopup } = useProfile();
     const [mounted, setMounted] = useState(false);
 
     // Prevent hydration mismatch on client vs server
@@ -39,7 +41,17 @@ export function Navbar() {
                         )}
                     </div>
 
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-4">
+                        {/* Show username badge if profile exists */}
+                        {mounted && isConnected && profile && (
+                            <button
+                                onClick={() => setShowProfilePopup(true)}
+                                className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#33CCFF] border-2 border-black shadow-[2px_2px_0_0_#000000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all rounded-lg"
+                            >
+                                <span className="text-lg">👤</span>
+                                <span className="font-bold text-black text-sm">{profile.username}</span>
+                            </button>
+                        )}
                         <ConnectButton />
                     </div>
                 </div>

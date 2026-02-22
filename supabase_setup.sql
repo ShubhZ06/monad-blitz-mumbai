@@ -44,6 +44,22 @@ CREATE INDEX idx_player_cards_owner_via ON player_cards(owner_address, acquired_
 
 ALTER TABLE player_cards DISABLE ROW LEVEL SECURITY;
 
--- 3. Enable Realtime for both tables
+-- 3. User Profiles table (user display names)
+DROP TABLE IF EXISTS user_profiles;
+
+CREATE TABLE user_profiles (
+  wallet_address text PRIMARY KEY,                    -- wallet address (lowercase)
+  username text NOT NULL,                             -- display name
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Index for fast lookups by username (for uniqueness check)
+CREATE UNIQUE INDEX idx_user_profiles_username ON user_profiles(LOWER(username));
+
+ALTER TABLE user_profiles DISABLE ROW LEVEL SECURITY;
+
+-- 4. Enable Realtime for all tables
 ALTER PUBLICATION supabase_realtime ADD TABLE rooms;
 ALTER PUBLICATION supabase_realtime ADD TABLE player_cards;
+ALTER PUBLICATION supabase_realtime ADD TABLE user_profiles;

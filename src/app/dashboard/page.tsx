@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useProfile } from '@/components/ProfileProvider';
 
 export default function Dashboard() {
     const { isConnected, address } = useAccount();
+    const { profile } = useProfile();
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
 
@@ -23,6 +25,9 @@ export default function Dashboard() {
 
     if (!mounted || !isConnected) return null; // Avoid hydration flash
 
+    // Display name: use profile username if available, otherwise truncated address
+    const displayName = profile?.username || (address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '');
+
     return (
         <div className="max-w-6xl mx-auto px-4 py-12 relative">
 
@@ -35,7 +40,7 @@ export default function Dashboard() {
                     Welcome to the <span className="bg-[#FF3366] text-white px-4 border-4 border-black shadow-[4px_4px_0_0_#000000] rotate-[-2deg] inline-block">Health Centre</span>
                 </h1>
                 <p className="text-black font-bold max-w-2xl mx-auto text-lg border-2 border-black bg-white p-4 shadow-[4px_4px_0_0_#000000]">
-                    Your Pokémon are fully healed and ready for action. {address ? `Trainer ${address.slice(0, 6)}...${address.slice(-4)}` : ''}, where would you like to go today?
+                    Your Pokémon are fully healed and ready for action. {displayName ? `Trainer ${displayName}` : ''}, where would you like to go today?
                 </p>
             </div>
 
