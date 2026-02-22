@@ -36,10 +36,10 @@
 ## 4. Multiplayer Sync (Supabase) & Battle Logic
 **Objective:** Implement the real-time multiplayer Top-Trumps battle.
 **Tasks:**
-- [ ] **Task 4.1:** Set up Supabase schema/tables for lobbies (`RoomID`, `Player1`, `Player2`, `GameState`).
+- [x] **Task 4.1:** Set up Supabase schema/tables for lobbies (`RoomID`, `Player1`, `Player2`, `GameState`).
 - [x] **Task 4.2:** Build the Battle Lobby UI (Input 4-digit code to join or create a room).
-- [ ] **Task 4.3:** Implement Supabase Realtime channels to sync the room state between the two players.
-- [ ] **Task 4.4:** Build the turn-based Top-Trumps logic and the Battle UI.
+- [x] **Task 4.3:** Implement Supabase Realtime channels to sync the room state between the two players.
+- [x] **Task 4.4:** Build the turn-based Top-Trumps logic and the Battle UI.
 
 ## 5. Escrow Integration & Game Loop Polish
 **Objective:** Connect the end-to-end game loop using the `BattleEscrow.sol`.
