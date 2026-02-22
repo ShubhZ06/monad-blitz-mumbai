@@ -1,0 +1,117 @@
+# ========================
+# Dependencies
+# ========================
+node_modules/
+jspm_packages/
+
+# Contracts (Hardhat) dependencies
+contracts/node_modules/
+
+# ========================
+# Environment / Secrets  ← NEVER commit these
+# ========================
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Allow example env files to be committed
+!.env.example
+
+# ========================
+# Next.js
+# ========================
+.next/
+out/
+next-env.d.ts
+
+# ========================
+# Hardhat / Solidity
+# ========================
+contracts/cache/
+contracts/artifacts/
+contracts/.env
+contracts/.env.*
+!contracts/.env.example
+
+# ========================
+# Build output
+# ========================
+build/
+dist/
+.output/
+
+# ========================
+# Logs
+# ========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ========================
+# Misc / OS
+# ========================
+.DS_Store
+*.pem
+Thumbs.db
+
+# ========================
+# Debug / Reports
+# ========================
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+coverage/
+*.lcov
+.nyc_output/
+
+# ========================
+# Package manager caches
+# ========================
+.npm
+.yarn-integrity
+.pnpm-store/
+.cache/
+.parcel-cache/
+
+# ========================
+# TypeScript
+# ========================
+*.tsbuildinfo
+
+# ========================
+# Testing tools
+# ========================
+coverage/
+
+# ========================
+# Editors / IDEs
+# ========================
+.vscode-test
+.idea/
+
+# ========================
+# Vercel
+# ========================
+.vercel/
+
+# ========================
+# Yarn v1 / v2 / v3
+# ========================
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# ========================
+# Vite
+# ========================
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+.vite/
